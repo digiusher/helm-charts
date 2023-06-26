@@ -1,0 +1,15 @@
+apiVersion: v2
+name: kube-cost-metrics-collector
+version: 0.1.2
+description: DigiUsher Kubernetes metrics collector.
+type: application
+dependencies:
+  - name: prometheus
+    version: "17.0.2"
+    repository: https://prometheus-community.github.io/helm-charts
+  - name: kube-service-selectors
+    version: "1.0.1"
+    repository: https://digiusher.github.io/helm-charts
+maintainers:
+  - name: digiusher
+    email: support@digiusher.com

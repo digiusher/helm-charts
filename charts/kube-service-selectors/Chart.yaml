@@ -1,0 +1,7 @@
+apiVersion: v2
+name: kube-service-selectors
+type: application
+version: 1.0.2
+maintainers:
+  - name: digiusher
+    email: support@digiusher.com

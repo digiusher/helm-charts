@@ -22,6 +22,17 @@ entries:
     version: 0.1.3
   kube-service-selectors:
   - apiVersion: v2
+    created: "2023-06-27T21:15:45.671207065Z"
+    digest: 4742a96a7d6077f206280f3366dec5f05816dcc916a3a55c42e79feec404d08a
+    maintainers:
+    - email: support@digiusher.com
+      name: digiusher
+    name: kube-service-selectors
+    type: application
+    urls:
+    - https://github.com/digiusher/helm-charts/releases/download/kube-service-selectors-1.0.4/kube-service-selectors-1.0.4.tgz
+    version: 1.0.4
+  - apiVersion: v2
     created: "2023-06-27T19:15:33.250310714Z"
     digest: cde356bd0ec701f91588c50790557baba0ec03f7c5cf2bf0e4dfd894ba7a3b02
     maintainers:
@@ -32,4 +43,4 @@ entries:
     urls:
     - https://github.com/digiusher/helm-charts/releases/download/kube-service-selectors-1.0.3/kube-service-selectors-1.0.3.tgz
     version: 1.0.3
-generated: "2023-06-27T19:23:42.812808746Z"
+generated: "2023-06-27T21:15:45.671217466Z"

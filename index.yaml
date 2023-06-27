@@ -1,5 +1,16 @@
 apiVersion: v1
 entries:
-  kube-cost-metrics-collector:
+  kube-cost-metrics-collector: null
   kube-service-selectors:
-generated: "2023-06-06T06:00:00Z"
+  - apiVersion: v2
+    created: "2023-06-27T19:15:33.250310714Z"
+    digest: cde356bd0ec701f91588c50790557baba0ec03f7c5cf2bf0e4dfd894ba7a3b02
+    maintainers:
+    - email: support@digiusher.com
+      name: digiusher
+    name: kube-service-selectors
+    type: application
+    urls:
+    - https://github.com/digiusher/helm-charts/releases/download/kube-service-selectors-1.0.3/kube-service-selectors-1.0.3.tgz
+    version: 1.0.3
+generated: "2023-06-27T19:15:33.250318114Z"

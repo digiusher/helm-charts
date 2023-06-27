@@ -2,6 +2,25 @@ apiVersion: v1
 entries:
   kube-cost-metrics-collector:
   - apiVersion: v2
+    created: "2023-06-27T21:21:16.444921296Z"
+    dependencies:
+    - name: prometheus
+      repository: https://prometheus-community.github.io/helm-charts
+      version: 17.0.2
+    - name: kube-service-selectors
+      repository: https://digiusher.github.io/helm-charts
+      version: 1.0.4
+    description: DigiUsher Kubernetes metrics collector.
+    digest: 083de63d3c5ed6ad7fa94efba985d0eed5c7847843b2696685bd0b87ce73b914
+    maintainers:
+    - email: support@digiusher.com
+      name: digiusher
+    name: kube-cost-metrics-collector
+    type: application
+    urls:
+    - https://github.com/digiusher/helm-charts/releases/download/kube-cost-metrics-collector-0.1.4/kube-cost-metrics-collector-0.1.4.tgz
+    version: 0.1.4
+  - apiVersion: v2
     created: "2023-06-27T19:23:42.812794146Z"
     dependencies:
     - name: prometheus
@@ -43,4 +62,4 @@ entries:
     urls:
     - https://github.com/digiusher/helm-charts/releases/download/kube-service-selectors-1.0.3/kube-service-selectors-1.0.3.tgz
     version: 1.0.3
-generated: "2023-06-27T21:15:45.671217466Z"
+generated: "2023-06-27T21:21:16.444938798Z"

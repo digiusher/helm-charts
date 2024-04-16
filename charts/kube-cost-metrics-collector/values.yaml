@@ -38,7 +38,7 @@ prometheus:
   server:
     remote_write:
     # DigiUsher target skeleton. Target also includes tls and auth settings, extra headers and so on
-    - url: https://beta.digiusher.com/storage/api/v2/write
+    - url: https://app.digiusher.com/storage/api/v2/write
       name: digiusher
 
     # DigiUsher Kubernetes data source id

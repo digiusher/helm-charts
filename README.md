@@ -4,18 +4,23 @@
 Helm's [documentation](https://helm.sh/docs) to get started.
 
 Once Helm has been set up correctly, add the repo as follows:
+
 ```
 helm repo add digiusher https://digiusher.github.io/helm-charts
 ```
+
 If you had already added this repo earlier, run `helm repo update` to retrieve
 the latest versions of the packages.  You can then run `helm search repo
 digiusher` to see the charts.
 
-To install the <chart-name> chart:
+## Installation
+
+Follow the instructions in [kube-cost-metrics-collector](./charts/kube-cost-metrics-collector/README.md).
+
+### Update
+
+First update the repo:
+
 ```
-helm install <chart-name> digiusher/<chart-name>
-```
-To uninstall the chart:
-```
-helm uninstall <chart-name>
+helm repo update digiusher
 ```

@@ -4,7 +4,7 @@ prometheusScrape: true
 replicaCount: 1
 
 image:
-  repository: gaganpreetarora/kube-service-selectors:2024-10-28
+  repository: docker.io/gaganpreetarora/kube-service-selectors:2024-10-28
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: "2024-10-18"

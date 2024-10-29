@@ -31,6 +31,8 @@ prometheus:
     enabled: true
     persistentVolume:
       enabled: false
+    defaultFlagsOverride:
+    - --log.level=debug
 
   alertmanager:
     enabled: false

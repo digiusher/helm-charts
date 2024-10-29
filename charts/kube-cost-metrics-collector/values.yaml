@@ -22,17 +22,21 @@ prometheus:
 
   kubeStateMetrics:
     enabled: true
+    extraArgs:
+      log.level: debug
 
   prometheus-node-exporter:
     enabled: true
     hostNetwork: false
+    extraArgs:
+      log.level: debug
 
   prometheus-pushgateway:
     enabled: true
     persistentVolume:
       enabled: false
-    defaultFlagsOverride:
-    - --log.level=debug
+    extraArgs:
+      log.level: debug
 
   alertmanager:
     enabled: false

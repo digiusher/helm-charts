@@ -54,7 +54,7 @@ service:
 # List of additional arguments
 extraArgs:
 # Enable debug logging
-# - --debug=true
+ - --debug=true
 # Change requests timeout
 # - --timeout=10
 

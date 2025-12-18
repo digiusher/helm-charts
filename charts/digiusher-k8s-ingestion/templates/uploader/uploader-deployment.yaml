@@ -1,0 +1,87 @@
+{{- if .Values.uploader.enabled }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.uploader.name }}-deployment
+  labels:
+    {{- include "digiusher-k8s-ingestion.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.uploader.autoscaling.enabled }}
+  replicas: {{ .Values.uploader.replicaCount }}
+  {{- end }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ .Values.uploader.name }}
+  template:
+    metadata:
+      {{- with .Values.uploader.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "digiusher-k8s-ingestion.labels" . | nindent 8 }}
+        app: {{ .Values.uploader.name }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- with .Values.uploader.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.uploader.containerName }}
+          {{- with .Values.uploader.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: "{{ .Values.uploader.image.repository }}:{{ .Values.uploader.image.tag }}"
+          imagePullPolicy: {{ .Values.uploader.image.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.uploader.name }}-cm
+          env:
+            - name: K8S_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: digiusher-k8s-api-token
+                  key: K8S_API_TOKEN
+          {{- with .Values.uploader.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.uploader.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.uploader.resources }} 
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.uploader.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.uploader.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.uploader.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.uploader.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.uploader.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+{{- end }}

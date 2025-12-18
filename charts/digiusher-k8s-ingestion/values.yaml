@@ -1,0 +1,419 @@
+# Default values for digiusher-k8s-ingestion.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+#########################################
+# Global configs
+#########################################
+global:
+  environment:
+    shared:
+      redis_max_buffer_size_sec: "86400" # 24 hours, minimum 6 hours
+      grace_period_seconds: "120" # 2 minutes, minimum 30 seconds
+    dev:
+      enabled: false
+  redis_url: "redis://digiusher-k8s-redis-svc:6379"
+
+#########################################
+# Service Account
+#########################################
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: "digiusher-k8s-ingestion-sa"
+
+#########################################
+# API service configurations
+#########################################
+api:
+  enabled: true
+  name: "digiusher-k8s-api"
+  containerName: "digiusher-k8s-api"
+  replicaCount: 1
+  image:
+    repository: ghcr.io/digiusher/digiusher-k8s-api
+    pullPolicy: Always
+    tag: "latest"
+  nameOverride: ""
+  fullnameOverride: ""
+  podAnnotations: {}
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+    fsGroup: 1001
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1001
+  # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
+  env:
+    max_request_bytes: "20971520" # 20 MiB, minimum 1 MiB
+  service:
+    name: digiusher-k8s-api-svc
+    type: ClusterIP
+    port: 8111
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1500m
+      memory: 1024Mi
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    successThreshold: 1
+    failureThreshold: 20
+  readinessProbe:
+    httpGet:
+      path: /healthz
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    successThreshold: 1
+    failureThreshold: 20
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  volumes: []
+  # - name: foo
+  #   secret:
+  #     secretName: mysecret
+  #     optional: false
+  volumeMounts: []
+  # - name: foo
+  #   mountPath: "/etc/foo"
+  #   readOnly: true
+  nodeSelector: {}
+  tolerations:
+    - key: "digiusher-k8s"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+  affinity: {}
+
+#########################################
+# Uploader service configurations
+#########################################
+uploader:
+  enabled: true
+  name: "digiusher-k8s-uploader"
+  containerName: "uploader"
+  replicaCount: 1
+  image:
+    repository: ghcr.io/digiusher/digiusher-k8s-uploader
+    pullPolicy: Always
+    tag: "latest"
+  nameOverride: ""
+  fullnameOverride: ""
+  podAnnotations: {}
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+    fsGroup: 1001
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1001
+  # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
+  env:
+    digiusher_k8s_api_url: "https://app.digiusher.com/api/v3"
+    digiusher_k8s_api_token: <replace_me> # Provided by Digiusher team
+  volumes: []
+  volumeMounts: []
+  # service:
+  #   name: uploader-svc
+  #   type: ClusterIP
+  #   port: 8111
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1500m
+      memory: 1024Mi
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 7227
+      scheme: HTTP
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    successThreshold: 1
+    failureThreshold: 20
+  readinessProbe:
+    httpGet:
+      path: /healthz
+      port: 7227
+      scheme: HTTP
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    successThreshold: 1
+    failureThreshold: 20
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  nodeSelector: {}
+  tolerations:
+    - key: "digiusher-k8s"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+  affinity: {}
+
+#########################################
+# Redis service configurations
+#########################################
+redis:
+  enabled: true
+  name: "digiusher-k8s-redis"
+  containerName: "digiusher-k8s-redis"
+  replicaCount: 1
+  image:
+    repository: redis
+    pullPolicy: Always
+    tag: "7.4.2"
+  nameOverride: ""
+  fullnameOverride: ""
+  podAnnotations: {}
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+    fsGroup: 1001
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1001
+  # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
+  command: ["redis-server"]
+  args: ["--save", "900", "1", "--appendonly", "no"]
+  pvc:
+    size: 4Gi
+    storageClassName: default
+  service:
+    name: digiusher-k8s-redis-svc
+    type: ClusterIP
+    port: 6379
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1024Mi
+    limits:
+      cpu: 2000m
+      memory: 2048Mi
+  livenessProbe:
+    exec:
+      command: ["redis-cli", "ping"]
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 1
+    successThreshold: 1
+    failureThreshold: 10
+  readinessProbe:
+    exec:
+      command: ["redis-cli", "ping"]
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 1
+    successThreshold: 1
+    failureThreshold: 10
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  volumes:
+    - name: redis-storage
+      persistentVolumeClaim:
+        claimName: digiusher-k8s-redis-pvc
+  volumeMounts:
+    - name: redis-storage
+      mountPath: /data
+  nodeSelector: {}
+  tolerations:
+    - key: "digiusher-k8s"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+  affinity: {}
+
+  #########################################
+
+# Grafana Alloy configurations
+#########################################
+alloy:
+  controller:
+    podLabels:
+      owner: digiusher-k8s
+      component: external
+    tolerations:
+      - effect: NoExecute
+        operator: Exists
+      - effect: NoSchedule
+        operator: Exists
+  alloy:
+    resources:
+      limits:
+        memory: 768Mi
+    # -- Main configuration block for Alloy components
+    configMap:
+      name: alloy-configmap
+      # -- Enable creating the ConfigMap containing the Alloy configuration
+      create: false
+      # -- Filename for the Alloy configuration within the ConfigMap
+      # filename: config.alloy
+      # # -- Content of the Alloy configuration (River format)
+      # content: |
+      #   /*
+      #     Overview of the data pipeline:
+      #     - Discover Kubernetes nodes
+      #     - Scrape kube-state-metrics using ksm_scraper => Filter using ksm_relabler => Remote write to sidecar
+      #     - Scrape cAdvisor using cadvisor_scraper => Filter using cadvisor_relabler => Remote write to sidecar
+      #   */
+
+      #   // Discover Kubernetes nodes
+      #   discovery.kubernetes "nodes" {
+      #     role = "node"
+      #   }
+
+      #   // KubeStateMetrics gives us overview of the cluster
+      #   prometheus.scrape "ksm_scraper" {
+      #     // It doesn't make sense to scrape KSM very hard because it's just metadata that we want
+      #     // but at the same time, we want to be able to scrape components as soon as they are available
+      #     scrape_interval = "25s"
+      #     scrape_timeout = "10s"
+      #     targets = [
+      #       {
+      #         __address__ = "digiusher-k8s-kube-state-metrics.digiusher-k8s.svc.cluster.local:8080",
+      #       },
+      #     ]
+      #     forward_to = [prometheus.relabel.ksm_relabler.receiver]
+      #   }
+
+      #   // Relabel the metrics to only keep the ones we need
+      #   prometheus.relabel "ksm_relabler" {
+      #     forward_to = [prometheus.remote_write.default.receiver]
+
+      #     // Node & Pod level metrics
+      #     /*
+      #       WARNING: Please do not try to split the regexes below into multiple rules,
+      #       it breaks the pipeline and nothing is exported as a result.
+      #     */
+      #     rule {
+      #       action = "keep"
+      #       source_labels = ["__name__"]
+      #       regex = "kube_daemonset_created|kube_daemonset_labels|kube_daemonset_status_current_number_scheduled|kube_daemonset_status_desired_number_scheduled|kube_daemonset_status_number_available|kube_daemonset_status_number_misscheduled|kube_daemonset_status_number_ready|kube_daemonset_status_number_unavailable|kube_deployment_created|kube_deployment_labels|kube_deployment_status_replicas|kube_deployment_status_replicas_available|kube_deployment_status_replicas_ready|kube_deployment_status_replicas_unavailable|kube_namespace_created|kube_namespace_labels|kube_namespace_status_phase|kube_node_created|kube_node_info|kube_node_labels|kube_node_role|kube_node_status_addresses|kube_node_status_allocatable|kube_node_status_capacity|kube_node_status_condition|kube_pod_created|kube_pod_info|kube_pod_labels|kube_pod_start_time|kube_pod_status_phase|kube_pod_container_resource_limits|kube_pod_container_resource_requests|kube_replicaset_created|kube_replicaset_labels|kube_replicaset_owner|kube_replicaset_status_ready_replicas|kube_replicaset_status_replicas|kube_resourcequota|kube_resourcequota_created|kube_resourcequota_labels|kube_service_created|kube_service_info|kube_service_labels|kube_service_spec_type|kube_cronjob_created|kube_cronjob_info|kube_cronjob_labels|kube_cronjob_next_schedule_time|kube_cronjob_status_active|kube_cronjob_status_last_schedule_time|kube_cronjob_status_last_successful_time|kube_job_created|kube_job_labels|kube_job_owner|kube_job_spec_completions|kube_job_spec_parallelism|kube_job_status_active|kube_job_status_completion_time|kube_job_status_failed|kube_job_status_start_time|kube_job_status_succeeded|kube_persistentvolume_capacity_bytes|kube_persistentvolume_created|kube_persistentvolume_info|kube_persistentvolume_labels|kube_persistentvolume_status_phase|kube_persistentvolume_volume_mode|kube_persistentvolumeclaim_access_mode|kube_persistentvolumeclaim_created|kube_persistentvolumeclaim_info|kube_persistentvolumeclaim_labels|kube_persistentvolumeclaim_resource_requests_storage_bytes|kube_persistentvolumeclaim_status_condition|kube_persistentvolumeclaim_status_phase|kube_replicationcontroller_created|kube_replicationcontroller_owner|kube_replicationcontroller_status_available_replicas|kube_replicationcontroller_status_fully_labeled_replicas|kube_replicationcontroller_status_ready_replicas|kube_replicationcontroller_status_replicas|kube_statefulset_created|kube_statefulset_labels|kube_statefulset_persistentvolumeclaim_retention_policy|kube_statefulset_replicas|kube_statefulset_status_replicas|kube_statefulset_status_replicas_available|kube_statefulset_status_replicas_current|kube_statefulset_status_replicas_ready|kube_statefulset_status_replicas_updated|kube_storageclass_created|kube_storageclass_info|kube_storageclass_labels"
+      #     }
+      #   }
+
+      #   // Cadvisor is required for container_cpu_usage_seconds_total & container_memory_usage_bytes
+      #   prometheus.scrape "cadvisor_scraper" {
+      #     // Scraping this info too often is not of much use because we are anyway
+      #     // going to downsample it to 1 minute. We scrape is frequently just so that
+      #     // we don't miss any short lived work loads.
+      #     scrape_interval = "20s"
+      #     scrape_timeout = "10s"
+      #     targets = discovery.kubernetes.nodes.targets
+      #     forward_to = [prometheus.relabel.cadvisor_relabler.receiver]
+      #     scheme = "https"
+      #     metrics_path = "/metrics/cadvisor"
+
+      #     bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      #     tls_config {
+      #       insecure_skip_verify = true
+      #     }
+      #   }
+
+      #   prometheus.relabel "cadvisor_relabler" {
+      #     forward_to = [prometheus.remote_write.default.receiver]
+
+      #     // Keep only specific labels
+      #     rule {
+      #       action = "labelkeep"
+      #       regex = "__name__|container|id|name|namespace|pod"
+      #     }
+
+      #     // Keep usage metrics
+      #     rule {
+      #       action = "keep"
+      #       source_labels = ["__name__"]
+      #       regex = "container_cpu_usage_seconds_total|container_memory_usage_bytes"
+      #     }
+      #   }
+
+      #   // Remote write to the remote write URL
+      #   prometheus.remote_write "default" {
+      #     wal {
+      #       truncate_frequency = "1h"
+      #       max_keepalive_time = "24h"
+      #     }
+
+      #     endpoint {
+      #       url = "http://digiusher-k8s-api-svc.digiusher-k8s.svc.cluster.local:8111/api/v1/write" // Your remote write URL
+      #       remote_timeout = "10s"
+      #       metadata_config {
+      #         send = false // We don't need to send metadata to the remote write URL
+      #       }
+
+      #       queue_config {
+      #         capacity = 20000
+      #         max_samples_per_send = 20000
+      #         batch_send_deadline = "15s"
+      #         sample_age_limit = "24h"
+      #       }
+
+      #       tls_config {
+      #         insecure_skip_verify = false
+      #       }
+      #       /*
+      #       Add authentication headers or TLS config if needed
+      #       headers = {
+      #         "Authorization" = "Bearer <your_token>",
+      #         "X-Scope-OrgID" = "<your_org_id>", // Example for Cortex/Mimir
+      #       }
+      #       tls_config {
+      #         ca_file = "/path/to/ca.crt"
+      #         cert_file = "/path/to/client.crt"
+      #         key_file = "/path/to/client.key"
+      #         insecure_skip_verify = false
+      #       }
+      #       */
+      #     }
+      #   }
+
+#########################################
+# Kube State Metrics configurations
+#########################################
+kube-state-metrics:
+  extraArgs:
+    - "--metric-labels-allowlist=pods=[*],nodes=[*],services=[selector],resourcequotas=[*],jobs=[*],namespaces=[*],endpoints=[*]"
+  podLabels:
+    owner: digiusher-k8s
+    component: external

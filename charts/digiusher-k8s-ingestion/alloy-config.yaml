@@ -1,0 +1,79 @@
+discovery.kubernetes "nodes" {
+    role = "node"
+}
+
+prometheus.scrape "ksm_scraper" {
+    scrape_interval = "25s"
+    scrape_timeout = "10s"
+    targets = [
+    {
+        __address__ = "digiusher-k8s-kube-state-metrics.digiusher-k8s.svc.cluster.local:8080",
+    },
+    ]
+    forward_to = [prometheus.relabel.ksm_relabler.receiver]
+}
+
+prometheus.relabel "ksm_relabler" {
+    forward_to = [prometheus.remote_write.default.receiver]
+
+    rule {
+    action = "keep"
+    source_labels = ["__name__"]
+    regex = "kube_daemonset_created|kube_daemonset_labels|kube_daemonset_status_current_number_scheduled|kube_daemonset_status_desired_number_scheduled|kube_daemonset_status_number_available|kube_daemonset_status_number_misscheduled|kube_daemonset_status_number_ready|kube_daemonset_status_number_unavailable|kube_deployment_created|kube_deployment_labels|kube_deployment_status_replicas|kube_deployment_status_replicas_available|kube_deployment_status_replicas_ready|kube_deployment_status_replicas_unavailable|kube_namespace_created|kube_namespace_labels|kube_namespace_status_phase|kube_node_created|kube_node_info|kube_node_labels|kube_node_role|kube_node_status_addresses|kube_node_status_allocatable|kube_node_status_capacity|kube_node_status_condition|kube_pod_created|kube_pod_info|kube_pod_labels|kube_pod_start_time|kube_pod_status_phase|kube_pod_container_resource_limits|kube_pod_container_resource_requests|kube_replicaset_created|kube_replicaset_labels|kube_replicaset_owner|kube_replicaset_status_ready_replicas|kube_replicaset_status_replicas|kube_resourcequota|kube_resourcequota_created|kube_resourcequota_labels|kube_service_created|kube_service_info|kube_service_labels|kube_service_spec_type|kube_cronjob_created|kube_cronjob_info|kube_cronjob_labels|kube_cronjob_next_schedule_time|kube_cronjob_status_active|kube_cronjob_status_last_schedule_time|kube_cronjob_status_last_successful_time|kube_job_created|kube_job_labels|kube_job_owner|kube_job_spec_completions|kube_job_spec_parallelism|kube_job_status_active|kube_job_status_completion_time|kube_job_status_failed|kube_job_status_start_time|kube_job_status_succeeded|kube_persistentvolume_capacity_bytes|kube_persistentvolume_created|kube_persistentvolume_info|kube_persistentvolume_labels|kube_persistentvolume_status_phase|kube_persistentvolume_volume_mode|kube_persistentvolumeclaim_access_mode|kube_persistentvolumeclaim_created|kube_persistentvolumeclaim_info|kube_persistentvolumeclaim_labels|kube_persistentvolumeclaim_resource_requests_storage_bytes|kube_persistentvolumeclaim_status_condition|kube_persistentvolumeclaim_status_phase|kube_replicationcontroller_created|kube_replicationcontroller_owner|kube_replicationcontroller_status_available_replicas|kube_replicationcontroller_status_fully_labeled_replicas|kube_replicationcontroller_status_ready_replicas|kube_replicationcontroller_status_replicas|kube_statefulset_created|kube_statefulset_labels|kube_statefulset_persistentvolumeclaim_retention_policy|kube_statefulset_replicas|kube_statefulset_status_replicas|kube_statefulset_status_replicas_available|kube_statefulset_status_replicas_current|kube_statefulset_status_replicas_ready|kube_statefulset_status_replicas_updated|kube_storageclass_created|kube_storageclass_info|kube_storageclass_labels"
+    }
+}
+
+prometheus.scrape "cadvisor_scraper" {
+    scrape_interval = "20s"
+    scrape_timeout = "10s"
+    targets = discovery.kubernetes.nodes.targets
+    forward_to = [prometheus.relabel.cadvisor_relabler.receiver]
+    scheme = "https"
+    metrics_path = "/metrics/cadvisor"
+
+    bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+    tls_config {
+    insecure_skip_verify = true
+    }
+}
+
+prometheus.relabel "cadvisor_relabler" {
+    forward_to = [prometheus.remote_write.default.receiver]
+
+    rule {
+    action = "labelkeep"
+    regex = "__name__|container|id|name|namespace|pod"
+    }
+
+    rule {
+    action = "keep"
+    source_labels = ["__name__"]
+    regex = "container_cpu_usage_seconds_total|container_memory_usage_bytes"
+    }
+}
+
+prometheus.remote_write "default" {
+    wal {
+    truncate_frequency = "1h"
+    max_keepalive_time = "24h"
+    }
+
+    endpoint {
+    url = "http://digiusher-k8s-api-svc.digiusher-k8s.svc.cluster.local:8111/api/v1/write"
+    remote_timeout = "10s"
+    metadata_config {
+        send = false
+    }
+
+    queue_config {
+        capacity = 20000
+        max_samples_per_send = 20000
+        batch_send_deadline = "15s"
+        sample_age_limit = "24h"
+    }
+
+    tls_config {
+        insecure_skip_verify = false
+    }
+    }
+}

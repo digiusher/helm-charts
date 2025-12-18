@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.alloy.alloy.configMap.name }}
+  namespace: {{ .Release.Namespace }}
+data:
+  config.alloy: |
+    {{- .Files.Get "alloy-config.yaml" 
+        | replace "digiusher-k8s-kube-state-metrics" (printf "%s-kube-state-metrics" .Release.Name) 
+        | replace "digiusher-k8s.svc.cluster.local:8080" (printf "%s.svc.cluster.local:8080" .Release.Namespace)
+        | replace "digiusher-k8s-api-svc" (printf "%s-api-svc" .Release.Name) 
+        | replace "digiusher-k8s.svc.cluster.local:8111" (printf "%s.svc.cluster.local:8111" .Release.Namespace)
+        | trim 
+        | nindent 4 
+    }}

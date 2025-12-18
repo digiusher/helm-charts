@@ -1,0 +1,12 @@
+dependencies:
+- name: redis
+  repository: https://charts.bitnami.com/bitnami
+  version: 20.13.1
+- name: alloy
+  repository: https://grafana.github.io/helm-charts
+  version: 1.2.0
+- name: kube-state-metrics
+  repository: https://prometheus-community.github.io/helm-charts
+  version: 5.30.1
+digest: sha256:900e75c079383caf0db08044b2baa35758889cba2adb5945718bdcce05b7768d
+generated: "2025-07-26T17:21:47.099776+08:00"

@@ -32,7 +32,7 @@ api:
   containerName: "digiusher-k8s-api"
   replicaCount: 1
   image:
-    repository: ghcr.io/digiusher/digiusher-k8s-api
+    repository: digiusher.azurecr.io/digiusher-k8s-api
     pullPolicy: Always
     tag: "latest"
   nameOverride: ""
@@ -114,7 +114,7 @@ uploader:
   containerName: "uploader"
   replicaCount: 1
   image:
-    repository: ghcr.io/digiusher/digiusher-k8s-uploader
+    repository: digiusher.azurecr.io/digiusher-k8s-uploader
     pullPolicy: Always
     tag: "latest"
   nameOverride: ""

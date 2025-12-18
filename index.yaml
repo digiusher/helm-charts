@@ -18,4 +18,21 @@ entries:
     urls:
     - https://github.com/digiusher/helm-charts/releases/download/digiusher-k8s-ingestion-0.1.0/digiusher-k8s-ingestion-0.1.0.tgz
     version: 0.1.0
-generated: "2025-12-18T22:27:17.224755708Z"
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2025-12-18T23:24:15.849367248Z"
+    dependencies:
+    - name: alloy
+      repository: https://grafana.github.io/helm-charts
+      version: 1.2.0
+    - name: kube-state-metrics
+      repository: https://prometheus-community.github.io/helm-charts
+      version: 5.30.1
+    description: A Helm chart for Kubernetes
+    digest: 135c4307760a2c5e02c184aee5ee9e64e2bcf4d2432d19fc67a7fc8e9f9fd252
+    name: digiusher-k8s-ingestion
+    type: application
+    urls:
+    - https://github.com/digiusher/helm-charts/releases/download/digiusher-k8s-ingestion-0.0.1/digiusher-k8s-ingestion-0.0.1.tgz
+    version: 0.0.1
+generated: "2025-12-18T23:24:15.84937917Z"

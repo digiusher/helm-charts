@@ -18,10 +18,10 @@ You can then run `helm search repo digiusher` to see the charts.
 
 ### Installing a Chart
 
-To install the `digiusher-k8s-ingestion` chart:
+To install the `digiusher-k8s-agent` chart:
 
 ```console
-helm install my-release digiusher/digiusher-k8s-ingestion
+helm install my-release digiusher/digiusher-k8s-agent
 ```
 
 To uninstall:
@@ -32,4 +32,4 @@ helm uninstall my-release
 
 ## Charts
 
-- [digiusher-k8s-ingestion](./charts/digiusher-k8s-ingestion): Helm chart for Kubernetes ingestion service.
+- [digiusher-k8s-agent](./charts/digiusher-k8s-agent): Helm chart for Kubernetes agent service.

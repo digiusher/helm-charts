@@ -1,6 +1,6 @@
 apiVersion: v2
-name: digiusher-k8s-ingestion
-description: A Helm chart for Kubernetes
+name: digiusher-k8s-agent
+description: DigiUsher metrics collection agent for Kubernetes
 
 # A chart can be either an 'application' or a 'library' chart.
 #

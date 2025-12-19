@@ -5,7 +5,7 @@ kind: ConfigMap
 metadata:
   name: {{ .Values.uploader.name }}-cm
 data:
-  {{- if .Values.global.environment.dev.enabled }}
+  {{- if .Values.redis.enabled }}
   REDIS_URL: "redis://{{ .Values.redis.service.name }}:{{ .Values.redis.service.port }}"
   {{- else }}
   REDIS_URL: {{ .Values.global.redis_url | quote }}

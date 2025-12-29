@@ -1,4 +1,4 @@
-# Default values for digiusher-k8s-ingestion.
+# Default values for digiusher-k8s-agent.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
@@ -21,7 +21,7 @@ serviceAccount:
   create: true
   automount: true
   annotations: {}
-  name: "digiusher-k8s-ingestion-sa"
+  name: "digiusher-k8s-agent-sa"
 
 #########################################
 # API service configurations
@@ -32,7 +32,7 @@ api:
   containerName: "digiusher-k8s-api"
   replicaCount: 1
   image:
-    repository: ghcr.io/digiusher/digiusher-k8s-api
+    repository: digiusher.azurecr.io/digiusher-k8s-api
     pullPolicy: Always
     tag: "latest"
   nameOverride: ""
@@ -114,7 +114,7 @@ uploader:
   containerName: "uploader"
   replicaCount: 1
   image:
-    repository: ghcr.io/digiusher/digiusher-k8s-uploader
+    repository: digiusher.azurecr.io/digiusher-k8s-uploader
     pullPolicy: Always
     tag: "latest"
   nameOverride: ""
@@ -215,7 +215,7 @@ redis:
   args: ["--save", "900", "1", "--appendonly", "no"]
   pvc:
     size: 4Gi
-    storageClassName: default
+    storageClassName: ""
   service:
     name: digiusher-k8s-redis-svc
     type: ClusterIP

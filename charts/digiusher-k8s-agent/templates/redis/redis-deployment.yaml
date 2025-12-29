@@ -1,11 +1,11 @@
-{{- if and .Values.redis.enabled .Values.global.environment.dev.enabled }}
+{{- if .Values.redis.enabled }}
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Values.redis.name }}-deployment
   labels:
-    {{- include "digiusher-k8s-ingestion.labels" . | nindent 4 }}
+    {{- include "digiusher-k8s-agent.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.redis.autoscaling.enabled }}
   replicas: {{ .Values.redis.replicaCount }}
@@ -20,7 +20,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "digiusher-k8s-ingestion.labels" . | nindent 8 }}
+        {{- include "digiusher-k8s-agent.labels" . | nindent 8 }}
         app: {{ .Values.redis.name }}
     spec:
     {{/*  

@@ -1,11 +1,11 @@
-{{- if .Values.api.enabled }}
+{{- if .Values.uploader.enabled }}
 
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Values.api.name }}-cm
+  name: {{ .Values.uploader.name }}-cm
 data:
-  {{- if .Values.global.environment.dev.enabled }}
+  {{- if .Values.redis.enabled }}
   REDIS_URL: "redis://{{ .Values.redis.service.name }}:{{ .Values.redis.service.port }}"
   {{- else }}
   REDIS_URL: {{ .Values.global.redis_url | quote }}
@@ -22,16 +22,8 @@ data:
   {{- if .Values.global.environment.shared.window_resolution_seconds }}
   WINDOW_RESOLUTION_SEC: {{ .Values.global.environment.shared.window_resolution_seconds | quote }}
   {{- end }}
-  {{- if .Values.api.env.gin_mode }}
-  GIN_MODE: {{ .Values.api.env.gin_mode | quote }}
-  {{- else }}
-  GIN_MODE: "release"
-  {{- end }}
-  {{- if .Values.api.env.max_request_bytes }}
-  MAX_REQUEST_BYTES: {{ .Values.api.env.max_request_bytes | quote }}
-  {{- end }}
-  {{- if .Values.api.env.digiusher_k8s_api_url }}
-  K8S_API_URL: {{ .Values.api.env.digiusher_k8s_api_url | quote }}
+  {{- if .Values.uploader.env.digiusher_k8s_api_url }}
+  K8S_API_URL: {{ .Values.uploader.env.digiusher_k8s_api_url | quote }}
   {{- end }}
 
 {{- end }}

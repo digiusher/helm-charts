@@ -46,7 +46,8 @@ prometheus.relabel "cadvisor_relabler" {
     regex = "__name__|container|id|name|namespace|pod|interface"
     }
 
-    // Keep CPU, memory, network, and storage usage metrics
+    // Keep CPU, memory, and network usage metrics
+    // (Storage metrics come from the separate kubelet_scraper pipeline, not cAdvisor)
     rule {
     action = "keep"
     source_labels = ["__name__"]
@@ -62,12 +63,13 @@ prometheus.relabel "cadvisor_relabler" {
     regex = "container_network_.*_bytes_total;.+"
     }
 
-    // For network metrics: only keep eth0 interface (drop virtual interfaces)
-    // tunl0, sit0, ip6tnl0 are tunnel/virtual interfaces with minimal traffic
+    // For network metrics: only keep eth* interfaces (the node's primary NIC)
+    // Drop CNI virtual interfaces (veth*, cali*, flannel*, cni0, tunl0, etc.) to avoid
+    // double-counting intra-node traffic. eth* gives us the actual external traffic.
     rule {
     action = "drop"
     source_labels = ["__name__", "interface"]
-    regex = "container_network_.*_bytes_total;(tunl0|sit0|ip6tnl0)"
+    regex = "container_network_.*_bytes_total;(?!eth).+"
     }
 }
 

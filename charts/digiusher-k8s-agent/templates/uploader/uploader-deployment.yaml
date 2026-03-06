@@ -5,7 +5,7 @@ kind: Deployment
 metadata:
   name: {{ .Values.uploader.name }}-deployment
   labels:
-    {{- include "digiusher-k8s-ingestion.labels" . | nindent 4 }}
+    {{- include "digiusher-k8s-agent.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.uploader.autoscaling.enabled }}
   replicas: {{ .Values.uploader.replicaCount }}
@@ -22,7 +22,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "digiusher-k8s-ingestion.labels" . | nindent 8 }}
+        {{- include "digiusher-k8s-agent.labels" . | nindent 8 }}
         app: {{ .Values.uploader.name }}
     spec:
       {{- with .Values.global.imagePullSecrets }}

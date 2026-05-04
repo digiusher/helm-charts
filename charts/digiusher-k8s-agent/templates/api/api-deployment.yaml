@@ -38,7 +38,7 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          image: "{{ include "digiusher-k8s-agent.image" (dict "image" .Values.api.image "global" .Values.global) }}"
           imagePullPolicy: {{ .Values.api.image.pullPolicy }}
           envFrom:
             - configMapRef:

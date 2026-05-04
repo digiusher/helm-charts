@@ -13,6 +13,12 @@ global:
     dev:
       enabled: false
   redis_url: "redis://digiusher-k8s-redis-svc:6379"
+  # Flip to true to pull the private *-dev images (CI workflow_dispatch builds)
+  # instead of the public prod ones. When true, populate global.imagePullSecrets
+  # with a secret that can authenticate to ghcr.io and override the per-service
+  # image.devTag with a real SHA (the *-dev packages don't carry a `latest` tag).
+  useDevImages: false
+  imagePullSecrets: []
 
 #########################################
 # Service Account
@@ -32,16 +38,19 @@ api:
   containerName: "digiusher-k8s-api"
   replicaCount: 1
   image:
-    repository: digiusher.azurecr.io/digiusher-k8s-api
+    repository: ghcr.io/digiusher/digiusher-k8s-api
+    devRepository: ghcr.io/digiusher/digiusher-k8s-api-dev
     pullPolicy: Always
     tag: "latest"
+    # Override with a SHA when global.useDevImages=true (the *-dev package has no `latest` tag).
+    devTag: "latest"
   nameOverride: ""
   fullnameOverride: ""
   podAnnotations: {}
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
-    fsGroup: 1001
+    fsGroup: 65532
   securityContext:
     capabilities:
       drop:
@@ -49,7 +58,7 @@ api:
     readOnlyRootFilesystem: true
     allowPrivilegeEscalation: false
     runAsNonRoot: true
-    runAsUser: 1001
+    runAsUser: 65532
   # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
   env:
     max_request_bytes: "20971520" # 20 MiB, minimum 1 MiB
@@ -114,9 +123,12 @@ uploader:
   containerName: "uploader"
   replicaCount: 1
   image:
-    repository: digiusher.azurecr.io/digiusher-k8s-uploader
+    repository: ghcr.io/digiusher/digiusher-k8s-uploader
+    devRepository: ghcr.io/digiusher/digiusher-k8s-uploader-dev
     pullPolicy: Always
     tag: "latest"
+    # Override with a SHA when global.useDevImages=true (the *-dev package has no `latest` tag).
+    devTag: "latest"
   nameOverride: ""
   fullnameOverride: ""
   podAnnotations: {}

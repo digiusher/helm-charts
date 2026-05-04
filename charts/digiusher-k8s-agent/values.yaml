@@ -42,11 +42,14 @@ api:
     devRepository: ghcr.io/digiusher/digiusher-k8s-api-dev
     pullPolicy: Always
     tag: "latest"
-    # Override with a SHA when global.useDevImages=true (the *-dev package has no `latest` tag).
-    devTag: "latest"
+    # Required when global.useDevImages=true. The *-dev package has no `latest` tag,
+    # so this must be set to a SHA via --set api.image.devTag=<sha>.
+    devTag: ""
   nameOverride: ""
   fullnameOverride: ""
   podAnnotations: {}
+  # API runs distroless `nonroot` (UID 65532). Uploader uses UID 1001 — the
+  # difference is intentional, see the uploader block below.
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -127,11 +130,16 @@ uploader:
     devRepository: ghcr.io/digiusher/digiusher-k8s-uploader-dev
     pullPolicy: Always
     tag: "latest"
-    # Override with a SHA when global.useDevImages=true (the *-dev package has no `latest` tag).
-    devTag: "latest"
+    # Required when global.useDevImages=true. The *-dev package has no `latest` tag,
+    # so this must be set to a SHA via --set uploader.image.devTag=<sha>.
+    devTag: ""
   nameOverride: ""
   fullnameOverride: ""
   podAnnotations: {}
+  # Uploader image is python:3.12-slim (not distroless — Python + pyarrow native
+  # deps make a distroless base impractical and offer little real saving).
+  # The image creates an `app` user at UID 1001, hence the values below differ
+  # from the API's 65532. Keep them in sync with uploader/Dockerfile.
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault

@@ -57,7 +57,10 @@ Caller passes: (dict "image" .Values.<svc>.image "global" .Values.global)
 */}}
 {{- define "digiusher-k8s-agent.image" -}}
 {{- if .global.useDevImages -}}
-{{ .image.devRepository }}:{{ .image.devTag | default .image.tag }}
+{{- if not .image.devTag -}}
+{{- fail "global.useDevImages=true but image.devTag is empty. Set it to a SHA, e.g. --set <svc>.image.devTag=<sha>. The *-dev packages have no `latest` tag." -}}
+{{- end -}}
+{{ .image.devRepository }}:{{ .image.devTag }}
 {{- else -}}
 {{ .image.repository }}:{{ .image.tag }}
 {{- end -}}

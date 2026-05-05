@@ -10,6 +10,8 @@ spec:
   resources:
     requests:
       storage: {{ .Values.redis.pvc.size }}
-  storageClassName: {{ .Values.redis.pvc.storageClassName }}
+  {{- with .Values.redis.pvc.storageClassName }}
+  storageClassName: {{ . }}
+  {{- end }}
 
 {{- end }}

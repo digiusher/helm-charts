@@ -66,10 +66,15 @@ prometheus.relabel "cadvisor_relabler" {
     // For network metrics: only keep eth* interfaces (the node's primary NIC)
     // Drop CNI virtual interfaces (veth*, cali*, flannel*, cni0, tunl0, etc.) to avoid
     // double-counting intra-node traffic. eth* gives us the actual external traffic.
+    //
+    // Alloy uses RE2 (no negative lookahead). The character-class trio is the RE2
+    // idiom for "doesn't start with eth": first char != 'e', or e + non-'t', or
+    // et + non-'h'. Anything starting with literal "eth" falls through all three
+    // alternatives, the regex doesn't match, and the metric is kept.
     rule {
     action = "drop"
     source_labels = ["__name__", "interface"]
-    regex = "container_network_.*_bytes_total;(?!eth).+"
+    regex = "container_network_.*_bytes_total;([^e]|e[^t]|et[^h]).*"
     }
 }
 

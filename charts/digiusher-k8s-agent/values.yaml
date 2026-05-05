@@ -12,7 +12,9 @@ global:
       grace_period_seconds: "120" # 2 minutes, minimum 30 seconds
     dev:
       enabled: false
-  redis_url: "redis://digiusher-k8s-redis-svc:6379"
+  # Used only when redis.enabled=false. Set this to your external redis
+  # endpoint. The default value is a placeholder and not a working URL.
+  redis_url: "redis://external-redis:6379"
   # Flip to true to pull the private *-dev images (CI workflow_dispatch builds)
   # instead of the public prod ones. When true, populate global.imagePullSecrets
   # with a secret that can authenticate to ghcr.io and override the per-service
@@ -27,14 +29,15 @@ serviceAccount:
   create: true
   automount: true
   annotations: {}
-  name: "digiusher-k8s-agent-sa"
+  # Leave empty to derive from the release name (recommended). Set explicitly
+  # only if you need to bind to a pre-existing ServiceAccount.
+  name: ""
 
 #########################################
 # API service configurations
 #########################################
 api:
   enabled: true
-  name: "digiusher-k8s-api"
   containerName: "digiusher-k8s-api"
   replicaCount: 1
   image:
@@ -66,7 +69,6 @@ api:
   env:
     max_request_bytes: "20971520" # 20 MiB, minimum 1 MiB
   service:
-    name: digiusher-k8s-api-svc
     type: ClusterIP
     port: 8111
   resources:
@@ -122,7 +124,6 @@ api:
 #########################################
 uploader:
   enabled: true
-  name: "digiusher-k8s-uploader"
   containerName: "uploader"
   replicaCount: 1
   image:
@@ -208,7 +209,6 @@ uploader:
 #########################################
 redis:
   enabled: true
-  name: "digiusher-k8s-redis"
   containerName: "digiusher-k8s-redis"
   replicaCount: 1
   image:
@@ -237,7 +237,6 @@ redis:
     size: 4Gi
     storageClassName: ""
   service:
-    name: digiusher-k8s-redis-svc
     type: ClusterIP
     port: 6379
   resources:
@@ -269,13 +268,6 @@ redis:
     maxReplicas: 6
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 80
-  volumes:
-    - name: redis-storage
-      persistentVolumeClaim:
-        claimName: digiusher-k8s-redis-pvc
-  volumeMounts:
-    - name: redis-storage
-      mountPath: /data
   nodeSelector: {}
   tolerations:
     - key: "digiusher-k8s"

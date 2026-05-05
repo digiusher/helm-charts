@@ -52,6 +52,54 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Per-component fullnames. Each chart-owned resource (Deployment, Service,
+ConfigMap, PVC, Secret) is named with these so it's release-prefixed and
+two installs in one namespace don't collide.
+*/}}
+{{- define "digiusher-k8s-agent.api.fullname" -}}
+{{- printf "%s-api" (include "digiusher-k8s-agent.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{- define "digiusher-k8s-agent.redis.fullname" -}}
+{{- printf "%s-redis" (include "digiusher-k8s-agent.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{- define "digiusher-k8s-agent.uploader.fullname" -}}
+{{- printf "%s-uploader" (include "digiusher-k8s-agent.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{- define "digiusher-k8s-agent.apiToken.secretName" -}}
+{{- printf "%s-api-token" (include "digiusher-k8s-agent.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{/*
+KSM service name. Mirrors the kube-state-metrics subchart's own fullname
+output for any release name not containing "kube-state-metrics" and where
+KSM has no fullnameOverride — both reasonable assumptions for this chart.
+*/}}
+{{- define "digiusher-k8s-agent.ksm.fullname" -}}
+{{- printf "%s-kube-state-metrics" .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
+{{/*
+Per-component selector labels. Each Deployment selects only its own pods.
+*/}}
+{{- define "digiusher-k8s-agent.api.selectorLabels" -}}
+{{ include "digiusher-k8s-agent.selectorLabels" . }}
+app.kubernetes.io/component: api
+{{- end }}
+
+{{- define "digiusher-k8s-agent.redis.selectorLabels" -}}
+{{ include "digiusher-k8s-agent.selectorLabels" . }}
+app.kubernetes.io/component: redis
+{{- end }}
+
+{{- define "digiusher-k8s-agent.uploader.selectorLabels" -}}
+{{ include "digiusher-k8s-agent.selectorLabels" . }}
+app.kubernetes.io/component: uploader
+{{- end }}
+
+{{/*
 Resolve image reference based on global.useDevImages.
 Caller passes: (dict "image" .Values.<svc>.image "global" .Values.global)
 */}}

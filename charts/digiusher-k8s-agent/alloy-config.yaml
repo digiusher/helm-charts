@@ -7,7 +7,7 @@ prometheus.scrape "ksm_scraper" {
     scrape_timeout = "10s"
     targets = [
     {
-        __address__ = "digiusher-k8s-kube-state-metrics.digiusher-k8s.svc.cluster.local:8080",
+        __address__ = "{{ include "digiusher-k8s-agent.ksm.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:8080",
     },
     ]
     forward_to = [prometheus.relabel.ksm_relabler.receiver]
@@ -143,7 +143,7 @@ prometheus.remote_write "default" {
     }
 
     endpoint {
-    url = "http://digiusher-k8s-api-svc.digiusher-k8s.svc.cluster.local:8111/api/v1/write"
+    url = "http://{{ include "digiusher-k8s-agent.api.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:8111/api/v1/write"
     remote_timeout = "10s"
     metadata_config {
         send = false

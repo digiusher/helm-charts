@@ -3,6 +3,23 @@ entries:
   digiusher-k8s-agent:
   - apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-05-05T16:11:51.674508923Z"
+    dependencies:
+    - name: alloy
+      repository: https://grafana.github.io/helm-charts
+      version: 1.2.0
+    - name: kube-state-metrics
+      repository: https://prometheus-community.github.io/helm-charts
+      version: 5.30.1
+    description: DigiUsher metrics collection agent for Kubernetes
+    digest: 67d453879128a1a3bd83acc0e9568dd85bd962137c443d0261ed10ec33e0af4c
+    name: digiusher-k8s-agent
+    type: application
+    urls:
+    - https://github.com/digiusher/helm-charts/releases/download/digiusher-k8s-agent-0.0.3/digiusher-k8s-agent-0.0.3.tgz
+    version: 0.0.3
+  - apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-03-06T09:04:12.519865567Z"
     dependencies:
     - name: alloy
@@ -70,4 +87,4 @@ entries:
     urls:
     - https://github.com/digiusher/helm-charts/releases/download/digiusher-k8s-ingestion-0.0.1/digiusher-k8s-ingestion-0.0.1.tgz
     version: 0.0.1
-generated: "2026-03-06T09:04:12.519891956Z"
+generated: "2026-05-05T16:11:51.674531285Z"

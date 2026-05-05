@@ -52,6 +52,21 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Resolve image reference based on global.useDevImages.
+Caller passes: (dict "image" .Values.<svc>.image "global" .Values.global)
+*/}}
+{{- define "digiusher-k8s-agent.image" -}}
+{{- if .global.useDevImages -}}
+{{- if not .image.devTag -}}
+{{- fail "global.useDevImages=true but image.devTag is empty. Set it to a SHA, e.g. --set <svc>.image.devTag=<sha>. The *-dev packages have no `latest` tag." -}}
+{{- end -}}
+{{ .image.devRepository }}:{{ .image.devTag }}
+{{- else -}}
+{{ .image.repository }}:{{ .image.tag }}
+{{- end -}}
+{{- end }}
+
+{{/*
 Create the name of the service account to use
 */}}
 {{- define "digiusher-k8s-agent.serviceAccountName" -}}

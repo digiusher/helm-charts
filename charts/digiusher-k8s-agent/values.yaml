@@ -13,6 +13,12 @@ global:
     dev:
       enabled: false
   redis_url: "redis://digiusher-k8s-redis-svc:6379"
+  # Flip to true to pull the private *-dev images (CI workflow_dispatch builds)
+  # instead of the public prod ones. When true, populate global.imagePullSecrets
+  # with a secret that can authenticate to ghcr.io and override the per-service
+  # image.devTag with a real SHA (the *-dev packages don't carry a `latest` tag).
+  useDevImages: false
+  imagePullSecrets: []
 
 #########################################
 # Service Account
@@ -32,16 +38,22 @@ api:
   containerName: "digiusher-k8s-api"
   replicaCount: 1
   image:
-    repository: digiusher.azurecr.io/digiusher-k8s-api
+    repository: ghcr.io/digiusher/digiusher-k8s-api
+    devRepository: ghcr.io/digiusher/digiusher-k8s-api-dev
     pullPolicy: Always
     tag: "latest"
+    # Required when global.useDevImages=true. The *-dev package has no `latest` tag,
+    # so this must be set to a SHA via --set api.image.devTag=<sha>.
+    devTag: ""
   nameOverride: ""
   fullnameOverride: ""
   podAnnotations: {}
+  # API runs distroless `nonroot` (UID 65532). Uploader uses UID 1001 — the
+  # difference is intentional, see the uploader block below.
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
-    fsGroup: 1001
+    fsGroup: 65532
   securityContext:
     capabilities:
       drop:
@@ -49,7 +61,7 @@ api:
     readOnlyRootFilesystem: true
     allowPrivilegeEscalation: false
     runAsNonRoot: true
-    runAsUser: 1001
+    runAsUser: 65532
   # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
   env:
     max_request_bytes: "20971520" # 20 MiB, minimum 1 MiB
@@ -114,12 +126,20 @@ uploader:
   containerName: "uploader"
   replicaCount: 1
   image:
-    repository: digiusher.azurecr.io/digiusher-k8s-uploader
+    repository: ghcr.io/digiusher/digiusher-k8s-uploader
+    devRepository: ghcr.io/digiusher/digiusher-k8s-uploader-dev
     pullPolicy: Always
     tag: "latest"
+    # Required when global.useDevImages=true. The *-dev package has no `latest` tag,
+    # so this must be set to a SHA via --set uploader.image.devTag=<sha>.
+    devTag: ""
   nameOverride: ""
   fullnameOverride: ""
   podAnnotations: {}
+  # Uploader image is python:3.12-slim (not distroless — Python + pyarrow native
+  # deps make a distroless base impractical and offer little real saving).
+  # The image creates an `app` user at UID 1001, hence the values below differ
+  # from the API's 65532. Keep them in sync with uploader/Dockerfile.
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault

@@ -3,16 +3,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.api.name }}-deployment
+  name: {{ include "digiusher-k8s-agent.api.fullname" . }}
   labels:
     {{- include "digiusher-k8s-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
 spec:
   {{- if not .Values.api.autoscaling.enabled }}
   replicas: {{ .Values.api.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      app: {{ .Values.api.name }}
+      {{- include "digiusher-k8s-agent.api.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.api.podAnnotations }}
@@ -20,14 +21,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "digiusher-k8s-agent.labels" . | nindent 8 }}
-        app: {{ .Values.api.name }}
+        {{- include "digiusher-k8s-agent.api.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ .Values.serviceAccount.name }}
+      serviceAccountName: {{ include "digiusher-k8s-agent.serviceAccountName" . }}
       {{- with .Values.api.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -42,7 +42,7 @@ spec:
           imagePullPolicy: {{ .Values.api.image.pullPolicy }}
           envFrom:
             - configMapRef:
-                name: {{ .Values.api.name }}-cm
+                name: {{ include "digiusher-k8s-agent.api.fullname" . }}
           ports:
             - name: http
               containerPort: {{ .Values.api.service.port }}

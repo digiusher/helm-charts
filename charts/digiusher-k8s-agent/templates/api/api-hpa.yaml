@@ -2,14 +2,15 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ .Values.api.name }}-hpa
+  name: {{ include "digiusher-k8s-agent.api.fullname" . }}
   labels:
-    app: {{ .Values.api.name }}
+    {{- include "digiusher-k8s-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ .Values.api.name }}-deployment
+    name: {{ include "digiusher-k8s-agent.api.fullname" . }}
   minReplicas: {{ .Values.api.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
   metrics:

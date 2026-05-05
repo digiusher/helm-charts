@@ -3,16 +3,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.redis.name }}-deployment
+  name: {{ include "digiusher-k8s-agent.redis.fullname" . }}
   labels:
     {{- include "digiusher-k8s-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
 spec:
   {{- if not .Values.redis.autoscaling.enabled }}
   replicas: {{ .Values.redis.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      app: {{ .Values.redis.name }}
+      {{- include "digiusher-k8s-agent.redis.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.redis.podAnnotations }}
@@ -20,16 +21,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "digiusher-k8s-agent.labels" . | nindent 8 }}
-        app: {{ .Values.redis.name }}
+        {{- include "digiusher-k8s-agent.redis.selectorLabels" . | nindent 8 }}
     spec:
-    {{/*  
-      {{- with .Values.global.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-    */}}
-      serviceAccountName: {{ .Values.serviceAccount.name }}
+      serviceAccountName: {{ include "digiusher-k8s-agent.serviceAccountName" . }}
       {{- with .Values.redis.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -59,14 +53,13 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.redis.volumeMounts }}
           volumeMounts:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-      {{- with .Values.redis.volumes }}
+            - name: redis-storage
+              mountPath: /data
       volumes:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        - name: redis-storage
+          persistentVolumeClaim:
+            claimName: {{ include "digiusher-k8s-agent.redis.fullname" . }}
       {{- with .Values.redis.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

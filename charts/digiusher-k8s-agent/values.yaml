@@ -291,10 +291,15 @@ vmagent:
     repository: victoriametrics/vmagent
     tag: "v1.143.0"
     pullPolicy: IfNotPresent
-  # Scrape interval applied to every job. Backend aggregates to minute/hour
-  # resolution so values below 60s are not load-bearing; 60s is the documented
-  # sweet spot for vmagent at scale.
-  scrapeInterval: "60s"
+  # Per-job scrape intervals. Defaults match the previous alloy config and
+  # are tuned for short-lived-pod capture (cAdvisor at 20s gives ~75% capture
+  # probability for 15-second pods vs ~25% at 60s). vmagent's footprint is
+  # series-driven, not scrape-rate-driven, so tighter intervals here have
+  # minimal memory impact.
+  intervals:
+    ksm: "25s"
+    cadvisor: "20s"
+    kubelet: "30s"
   # Disk usage cap for vmagent's remote_write retry queue per remote_write URL.
   # vmagent buffers samples here when the API is unreachable; size to cover the
   # longest acceptable outage window.

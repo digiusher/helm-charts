@@ -8,19 +8,17 @@ metadata:
     app.kubernetes.io/component: vmagent
 data:
   prometheus.yml: |
-    # Per-job scrape intervals are tuned to balance temporal resolution
-    # against scrape volume. Short-lived pods (lifetime < cAdvisor interval)
-    # can be missed entirely, so cAdvisor is kept tight at 20s.
+    # Per-job intervals are configured via vmagent.intervals in values.yaml.
+    # Defaults are 60s; tighten cadvisor specifically if you need to capture
+    # short-lived pods. See the values.yaml comment for the full rationale.
     global:
       scrape_interval: 60s
       scrape_timeout: 10s
 
     scrape_configs:
       # KSM cluster metadata — pod/workload/PVC objects via the API server.
-      # Object state changes infrequently relative to usage metrics; 25s is
-      # frequent enough to catch new pods within the cAdvisor sampling window.
       - job_name: ksm_scraper
-        scrape_interval: {{ .Values.vmagent.intervals.ksm | default "25s" }}
+        scrape_interval: {{ .Values.vmagent.intervals.ksm | default "60s" }}
         scrape_timeout: 10s
         static_configs:
           - targets:
@@ -31,11 +29,10 @@ data:
             regex: "kube_daemonset_created|kube_daemonset_labels|kube_daemonset_status_current_number_scheduled|kube_daemonset_status_desired_number_scheduled|kube_daemonset_status_number_available|kube_daemonset_status_number_misscheduled|kube_daemonset_status_number_ready|kube_daemonset_status_number_unavailable|kube_deployment_created|kube_deployment_labels|kube_deployment_status_replicas|kube_deployment_status_replicas_available|kube_deployment_status_replicas_ready|kube_deployment_status_replicas_unavailable|kube_namespace_created|kube_namespace_labels|kube_namespace_status_phase|kube_node_created|kube_node_info|kube_node_labels|kube_node_role|kube_node_status_addresses|kube_node_status_allocatable|kube_node_status_capacity|kube_node_status_condition|kube_pod_created|kube_pod_info|kube_pod_labels|kube_pod_start_time|kube_pod_status_phase|kube_pod_container_resource_limits|kube_pod_container_resource_requests|kube_replicaset_created|kube_replicaset_labels|kube_replicaset_owner|kube_replicaset_status_ready_replicas|kube_replicaset_status_replicas|kube_resourcequota|kube_resourcequota_created|kube_resourcequota_labels|kube_service_created|kube_service_info|kube_service_labels|kube_service_spec_type|kube_cronjob_created|kube_cronjob_info|kube_cronjob_labels|kube_cronjob_next_schedule_time|kube_cronjob_status_active|kube_cronjob_status_last_schedule_time|kube_cronjob_status_last_successful_time|kube_job_created|kube_job_labels|kube_job_owner|kube_job_spec_completions|kube_job_spec_parallelism|kube_job_status_active|kube_job_status_completion_time|kube_job_status_failed|kube_job_status_start_time|kube_job_status_succeeded|kube_persistentvolume_capacity_bytes|kube_persistentvolume_created|kube_persistentvolume_info|kube_persistentvolume_labels|kube_persistentvolume_status_phase|kube_persistentvolume_volume_mode|kube_persistentvolumeclaim_access_mode|kube_persistentvolumeclaim_created|kube_persistentvolumeclaim_info|kube_persistentvolumeclaim_labels|kube_persistentvolumeclaim_resource_requests_storage_bytes|kube_persistentvolumeclaim_status_condition|kube_persistentvolumeclaim_status_phase|kube_replicationcontroller_created|kube_replicationcontroller_owner|kube_replicationcontroller_status_available_replicas|kube_replicationcontroller_status_fully_labeled_replicas|kube_replicationcontroller_status_ready_replicas|kube_replicationcontroller_status_replicas|kube_statefulset_created|kube_statefulset_labels|kube_statefulset_persistentvolumeclaim_retention_policy|kube_statefulset_replicas|kube_statefulset_status_replicas|kube_statefulset_status_replicas_available|kube_statefulset_status_replicas_current|kube_statefulset_status_replicas_ready|kube_statefulset_status_replicas_updated|kube_storageclass_created|kube_storageclass_info|kube_storageclass_labels|kube_pod_spec_volumes_persistentvolumeclaims_info"
 
       # cAdvisor: per-container CPU/memory/network from each kubelet.
-      # Kept at 20s to catch short-lived pods. A pod must be alive during a
-      # scrape to register usage; at 20s a 15-second pod has ~75% capture
-      # probability vs ~25% at 60s.
+      # Default 60s; tighten to ~20s for workloads with many short-lived pods
+      # (capture probability for a 15s pod goes from ~25% at 60s to ~75% at 20s).
       - job_name: cadvisor_scraper
-        scrape_interval: {{ .Values.vmagent.intervals.cadvisor | default "20s" }}
+        scrape_interval: {{ .Values.vmagent.intervals.cadvisor | default "60s" }}
         scrape_timeout: 10s
         kubernetes_sd_configs:
           - role: node
@@ -69,9 +66,9 @@ data:
             regex: "container_network_.*_bytes_total;([^e]|e[^t]|et[^h]).*"
 
       # Kubelet /metrics for PVC volume stats. Storage capacity changes
-      # slowly; 30s is plenty.
+      # slowly; 60s is plenty.
       - job_name: kubelet_scraper
-        scrape_interval: {{ .Values.vmagent.intervals.kubelet | default "30s" }}
+        scrape_interval: {{ .Values.vmagent.intervals.kubelet | default "60s" }}
         scrape_timeout: 10s
         kubernetes_sd_configs:
           - role: node

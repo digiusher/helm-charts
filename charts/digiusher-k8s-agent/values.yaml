@@ -291,15 +291,24 @@ vmagent:
     repository: victoriametrics/vmagent
     tag: "v1.143.0"
     pullPolicy: IfNotPresent
-  # Per-job scrape intervals. Defaults match the previous alloy config and
-  # are tuned for short-lived-pod capture (cAdvisor at 20s gives ~75% capture
-  # probability for 15-second pods vs ~25% at 60s). vmagent's footprint is
-  # series-driven, not scrape-rate-driven, so tighter intervals here have
-  # minimal memory impact.
+  # Per-job scrape intervals. Defaults are 60s across the board to keep the
+  # downstream sample rate (and the redis buffer in the agent's API service)
+  # comfortable for typical clusters.
+  #
+  # Tighten cAdvisor specifically if your workloads include many short-lived
+  # pods (jobs, scaling churn) — at 60s a 15-second pod has only ~25% chance
+  # of being captured in a scrape; at 20s the capture probability is ~75%.
+  # vmagent's own footprint is series-driven, not scrape-rate-driven, so a
+  # lower cAdvisor interval barely moves the scraper's memory or CPU. The
+  # cost falls on the receiving side (api + redis + uploader) instead, which
+  # is what these defaults are tuned to protect.
+  #
+  # KSM and kubelet rarely benefit from sub-60s scraping; the API server is
+  # the bottleneck for KSM, and storage capacity changes slowly.
   intervals:
-    ksm: "25s"
-    cadvisor: "20s"
-    kubelet: "30s"
+    ksm: "60s"
+    cadvisor: "60s"
+    kubelet: "60s"
   # Disk usage cap for vmagent's remote_write retry queue per remote_write URL.
   # vmagent buffers samples here when the API is unreachable; size to cover the
   # longest acceptable outage window.

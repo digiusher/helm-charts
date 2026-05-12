@@ -1,0 +1,97 @@
+{{- if .Values.vmagent.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "digiusher-k8s-agent.vmagent.fullname" . }}
+  labels:
+    {{- include "digiusher-k8s-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: vmagent
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "digiusher-k8s-agent.vmagent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        # Roll pods when the scrape config changes
+        checksum/config: {{ include (print $.Template.BasePath "/vmagent/vmagent-configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "digiusher-k8s-agent.vmagent.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "digiusher-k8s-agent.serviceAccountName" . }}
+      {{- with .Values.vmagent.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: vmagent
+          image: "{{ .Values.vmagent.image.repository }}:{{ .Values.vmagent.image.tag }}"
+          imagePullPolicy: {{ .Values.vmagent.image.pullPolicy }}
+          {{- with .Values.vmagent.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          args:
+            - -promscrape.config=/config/prometheus.yml
+            - -remoteWrite.url=http://{{ include "digiusher-k8s-agent.api.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }}/api/v1/write
+            - -remoteWrite.tmpDataPath=/vmagent-data
+            - -remoteWrite.maxDiskUsagePerURL={{ .Values.vmagent.maxDiskUsagePerURL | default "5GB" }}
+            - -httpListenAddr=:8429
+            - -loggerFormat=json
+          ports:
+            - name: http
+              containerPort: 8429
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          {{- with .Values.vmagent.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: data
+              mountPath: /vmagent-data
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "digiusher-k8s-agent.vmagent.fullname" . }}
+        - name: data
+          {{- if .Values.vmagent.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "digiusher-k8s-agent.vmagent.fullname" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.vmagent.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.vmagent.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.vmagent.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

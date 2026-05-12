@@ -68,6 +68,10 @@ two installs in one namespace don't collide.
 {{- printf "%s-uploader" (include "digiusher-k8s-agent.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end }}
 
+{{- define "digiusher-k8s-agent.vmagent.fullname" -}}
+{{- printf "%s-vmagent" (include "digiusher-k8s-agent.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end }}
+
 {{- define "digiusher-k8s-agent.apiToken.secretName" -}}
 {{- printf "%s-api-token" (include "digiusher-k8s-agent.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end }}
@@ -97,6 +101,11 @@ app.kubernetes.io/component: redis
 {{- define "digiusher-k8s-agent.uploader.selectorLabels" -}}
 {{ include "digiusher-k8s-agent.selectorLabels" . }}
 app.kubernetes.io/component: uploader
+{{- end }}
+
+{{- define "digiusher-k8s-agent.vmagent.selectorLabels" -}}
+{{ include "digiusher-k8s-agent.selectorLabels" . }}
+app.kubernetes.io/component: vmagent
 {{- end }}
 
 {{/*

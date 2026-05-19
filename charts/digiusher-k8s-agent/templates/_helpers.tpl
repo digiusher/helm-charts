@@ -56,16 +56,8 @@ Per-component fullnames. Each chart-owned resource (Deployment, Service,
 ConfigMap, PVC, Secret) is named with these so it's release-prefixed and
 two installs in one namespace don't collide.
 */}}
-{{- define "digiusher-k8s-agent.api.fullname" -}}
-{{- printf "%s-api" (include "digiusher-k8s-agent.fullname" .) | trunc 63 | trimSuffix "-" -}}
-{{- end }}
-
-{{- define "digiusher-k8s-agent.redis.fullname" -}}
-{{- printf "%s-redis" (include "digiusher-k8s-agent.fullname" .) | trunc 63 | trimSuffix "-" -}}
-{{- end }}
-
-{{- define "digiusher-k8s-agent.uploader.fullname" -}}
-{{- printf "%s-uploader" (include "digiusher-k8s-agent.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- define "digiusher-k8s-agent.agent.fullname" -}}
+{{- printf "%s-agent" (include "digiusher-k8s-agent.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end }}
 
 {{- define "digiusher-k8s-agent.vmagent.fullname" -}}
@@ -88,19 +80,9 @@ KSM has no fullnameOverride — both reasonable assumptions for this chart.
 {{/*
 Per-component selector labels. Each Deployment selects only its own pods.
 */}}
-{{- define "digiusher-k8s-agent.api.selectorLabels" -}}
+{{- define "digiusher-k8s-agent.agent.selectorLabels" -}}
 {{ include "digiusher-k8s-agent.selectorLabels" . }}
-app.kubernetes.io/component: api
-{{- end }}
-
-{{- define "digiusher-k8s-agent.redis.selectorLabels" -}}
-{{ include "digiusher-k8s-agent.selectorLabels" . }}
-app.kubernetes.io/component: redis
-{{- end }}
-
-{{- define "digiusher-k8s-agent.uploader.selectorLabels" -}}
-{{ include "digiusher-k8s-agent.selectorLabels" . }}
-app.kubernetes.io/component: uploader
+app.kubernetes.io/component: agent
 {{- end }}
 
 {{- define "digiusher-k8s-agent.vmagent.selectorLabels" -}}

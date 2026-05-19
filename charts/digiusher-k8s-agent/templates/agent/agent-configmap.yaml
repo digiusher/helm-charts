@@ -1,0 +1,13 @@
+{{- if .Values.agent.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "digiusher-k8s-agent.agent.fullname" . }}
+  labels:
+    {{- include "digiusher-k8s-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+data:
+  K8S_API_URL: {{ .Values.agent.env.digiusher_k8s_api_url | quote }}
+  LOG_LEVEL: {{ .Values.agent.env.log_level | quote }}
+  PV_DIR: {{ .Values.agent.persistence.mountPath | quote }}
+{{- end }}

@@ -7,14 +7,8 @@
 #########################################
 global:
   environment:
-    shared:
-      redis_max_buffer_size_sec: "86400" # 24 hours, minimum 6 hours
-      grace_period_seconds: "120" # 2 minutes, minimum 30 seconds
     dev:
       enabled: false
-  # Used only when redis.enabled=false. Set this to your external redis
-  # endpoint. The default value is a placeholder and not a working URL.
-  redis_url: "redis://external-redis:6379"
   # Flip to true to pull the private *-dev images (CI workflow_dispatch builds)
   # instead of the public prod ones. When true, populate global.imagePullSecrets
   # with a secret that can authenticate to ghcr.io and override the per-service
@@ -34,29 +28,64 @@ serviceAccount:
   name: ""
 
 #########################################
-# API service configurations
+# Agent — the collapsed Go binary that receives Prometheus remote_write from
+# vmagent, aggregates in memory, snapshots to PV for crash recovery, builds
+# parquet at window close, and uploads via pre-signed S3 URL.
 #########################################
-api:
+agent:
   enabled: true
-  containerName: "digiusher-k8s-api"
-  replicaCount: 1
+  containerName: digiusher-k8s-agent
   image:
-    repository: ghcr.io/digiusher/digiusher-k8s-api
-    devRepository: ghcr.io/digiusher/digiusher-k8s-api-dev
-    pullPolicy: Always
+    repository: ghcr.io/digiusher/digiusher-k8s-agent
+    devRepository: ghcr.io/digiusher/digiusher-k8s-agent-dev
+    pullPolicy: IfNotPresent
+    # Pin to a published SemVer tag in production so installs are reproducible
+    # across image pushes. The default below is a placeholder; override per
+    # release.
     tag: "latest"
-    # Required when global.useDevImages=true. The *-dev package has no `latest` tag,
-    # so this must be set to a SHA via --set api.image.devTag=<sha>.
+    # Required when global.useDevImages=true. The *-dev package has no `latest`
+    # tag, so this must be set to a SHA via --set agent.image.devTag=<sha>.
     devTag: ""
-  nameOverride: ""
-  fullnameOverride: ""
-  podAnnotations: {}
-  # API runs distroless `nonroot` (UID 65532). Uploader uses UID 1001 — the
-  # difference is intentional, see the uploader block below.
+  service:
+    # The agent's governing Service is headless; `type` is present for parity
+    # with the other components in this chart and is otherwise ignored.
+    type: ClusterIP
+    port: 8111
+  persistence:
+    enabled: true
+    # Scale up for high series cardinality or extended outage tolerance —
+    # vmagent's WAL covers short outages, but the agent's PV-resident parquet
+    # retention window is what survives longer ones.
+    size: 20Gi
+    storageClassName: ""
+    mountPath: /var/lib/digiusher-agent/pending
+  # Memory scales with active series count (~750 bytes/series).
+  # 1Gi covers clusters up to ~1000 nodes.
+  # Increase to 2Gi for larger clusters or if OOMKilled events appear.
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 2000m
+      memory: 1Gi
+  env:
+    # Required — provided by the DigiUsher team. Secret only renders when this
+    # is non-empty; the agent fails fast on startup if the env var is missing.
+    digiusher_k8s_api_token: ""
+    digiusher_k8s_api_url: "https://app.digiusher.com/api/v3"
+    log_level: "info"
+  # Raw `env:` entries for advanced overrides (e.g., SNAPSHOT_TICK_SECONDS,
+  # UPLOAD_TICK_SECONDS, MAX_REQUEST_BYTES). The agent's built-in defaults
+  # are correct for this chart's design ceilings; override only when needed.
+  extraEnv: []
+  # Distroless `nonroot` (UID 65532).
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
     fsGroup: 65532
+    runAsNonRoot: true
+    runAsUser: 65532
   securityContext:
     capabilities:
       drop:
@@ -65,209 +94,29 @@ api:
     allowPrivilegeEscalation: false
     runAsNonRoot: true
     runAsUser: 65532
-  # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
-  env:
-    max_request_bytes: "20971520" # 20 MiB, minimum 1 MiB
-  service:
-    type: ClusterIP
-    port: 8111
-  resources:
-    requests:
-      cpu: 200m
-      memory: 512Mi
-    limits:
-      cpu: 1500m
-      memory: 1024Mi
+  startupProbe:
+    httpGet:
+      path: /readyz
+      port: http
+    periodSeconds: 10
+    failureThreshold: 18
   livenessProbe:
     httpGet:
       path: /healthz
       port: http
     initialDelaySeconds: 5
-    periodSeconds: 5
+    periodSeconds: 10
     timeoutSeconds: 2
-    successThreshold: 1
-    failureThreshold: 20
+    failureThreshold: 6
   readinessProbe:
     httpGet:
-      path: /healthz
+      path: /readyz
       port: http
-    initialDelaySeconds: 5
+    initialDelaySeconds: 1
     periodSeconds: 5
     timeoutSeconds: 2
-    successThreshold: 1
-    failureThreshold: 20
-  autoscaling:
-    enabled: true
-    minReplicas: 1
-    maxReplicas: 6
-    targetCPUUtilizationPercentage: 80
-    targetMemoryUtilizationPercentage: 80
-  volumes: []
-  # - name: foo
-  #   secret:
-  #     secretName: mysecret
-  #     optional: false
-  volumeMounts: []
-  # - name: foo
-  #   mountPath: "/etc/foo"
-  #   readOnly: true
-  nodeSelector: {}
-  tolerations:
-    - key: "digiusher-k8s"
-      operator: "Equal"
-      value: "true"
-      effect: "NoSchedule"
-  affinity: {}
-
-#########################################
-# Uploader service configurations
-#########################################
-uploader:
-  enabled: true
-  containerName: "uploader"
-  replicaCount: 1
-  image:
-    repository: ghcr.io/digiusher/digiusher-k8s-uploader
-    devRepository: ghcr.io/digiusher/digiusher-k8s-uploader-dev
-    pullPolicy: Always
-    tag: "latest"
-    # Required when global.useDevImages=true. The *-dev package has no `latest` tag,
-    # so this must be set to a SHA via --set uploader.image.devTag=<sha>.
-    devTag: ""
-  nameOverride: ""
-  fullnameOverride: ""
+    failureThreshold: 3
   podAnnotations: {}
-  # Uploader image is python:3.12-slim (not distroless — Python + pyarrow native
-  # deps make a distroless base impractical and offer little real saving).
-  # The image creates an `app` user at UID 1001, hence the values below differ
-  # from the API's 65532. Keep them in sync with uploader/Dockerfile.
-  podSecurityContext:
-    seccompProfile:
-      type: RuntimeDefault
-    fsGroup: 1001
-  securityContext:
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: false
-    runAsNonRoot: true
-    runAsUser: 1001
-  # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
-  env:
-    digiusher_k8s_api_url: "https://app.digiusher.com/api/v3"
-    digiusher_k8s_api_token: <replace_me> # Provided by Digiusher team
-  volumes: []
-  volumeMounts: []
-  # service:
-  #   name: uploader-svc
-  #   type: ClusterIP
-  #   port: 8111
-  resources:
-    requests:
-      cpu: 200m
-      memory: 512Mi
-    limits:
-      cpu: 1500m
-      memory: 1024Mi
-  livenessProbe:
-    httpGet:
-      path: /healthz
-      port: 7227
-      scheme: HTTP
-    initialDelaySeconds: 5
-    periodSeconds: 5
-    timeoutSeconds: 2
-    successThreshold: 1
-    failureThreshold: 20
-  readinessProbe:
-    httpGet:
-      path: /healthz
-      port: 7227
-      scheme: HTTP
-    initialDelaySeconds: 5
-    periodSeconds: 5
-    timeoutSeconds: 2
-    successThreshold: 1
-    failureThreshold: 20
-  autoscaling:
-    enabled: false
-    minReplicas: 1
-    maxReplicas: 6
-    targetCPUUtilizationPercentage: 80
-    targetMemoryUtilizationPercentage: 80
-  nodeSelector: {}
-  tolerations:
-    - key: "digiusher-k8s"
-      operator: "Equal"
-      value: "true"
-      effect: "NoSchedule"
-  affinity: {}
-
-#########################################
-# Redis service configurations
-#########################################
-redis:
-  enabled: true
-  containerName: "digiusher-k8s-redis"
-  replicaCount: 1
-  image:
-    repository: redis
-    pullPolicy: Always
-    tag: "7.4.2"
-  nameOverride: ""
-  fullnameOverride: ""
-  podAnnotations: {}
-  podSecurityContext:
-    seccompProfile:
-      type: RuntimeDefault
-    fsGroup: 1001
-  securityContext:
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: true
-    allowPrivilegeEscalation: false
-    runAsNonRoot: true
-    runAsUser: 1001
-  # This is for setting up a service more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/
-  command: ["redis-server"]
-  args: ["--save", "900", "1", "--appendonly", "no"]
-  pvc:
-    size: 4Gi
-    storageClassName: ""
-  service:
-    type: ClusterIP
-    port: 6379
-  resources:
-    requests:
-      cpu: 500m
-      memory: 1024Mi
-    limits:
-      cpu: 2000m
-      memory: 2048Mi
-  livenessProbe:
-    exec:
-      command: ["redis-cli", "ping"]
-    initialDelaySeconds: 10
-    periodSeconds: 5
-    timeoutSeconds: 1
-    successThreshold: 1
-    failureThreshold: 10
-  readinessProbe:
-    exec:
-      command: ["redis-cli", "ping"]
-    initialDelaySeconds: 10
-    periodSeconds: 5
-    timeoutSeconds: 1
-    successThreshold: 1
-    failureThreshold: 10
-  autoscaling:
-    enabled: false
-    minReplicas: 1
-    maxReplicas: 6
-    targetCPUUtilizationPercentage: 80
-    targetMemoryUtilizationPercentage: 80
   nodeSelector: {}
   tolerations:
     - key: "digiusher-k8s"
@@ -279,11 +128,9 @@ redis:
 #########################################
 # vmagent (VictoriaMetrics agent) configurations
 #
-# Replaces the previous Grafana Alloy DaemonSet. vmagent runs as a single
-# Deployment that scrapes KSM + every kubelet's /metrics/cadvisor and /metrics
-# endpoints (via Kubernetes service discovery), then remote_writes to the
-# in-cluster API service. ~10-20x more memory-efficient than alloy for the
-# same scrape volume.
+# vmagent runs as a single Deployment that scrapes KSM + every kubelet's
+# /metrics/cadvisor and /metrics endpoints (via Kubernetes service discovery),
+# then remote_writes to the in-cluster agent Service.
 #########################################
 vmagent:
   enabled: true
@@ -292,16 +139,13 @@ vmagent:
     tag: "v1.143.0"
     pullPolicy: IfNotPresent
   # Per-job scrape intervals. Defaults are 60s across the board to keep the
-  # downstream sample rate (and the redis buffer in the agent's API service)
-  # comfortable for typical clusters.
+  # downstream sample rate comfortable for typical clusters.
   #
   # Tighten cAdvisor specifically if your workloads include many short-lived
   # pods (jobs, scaling churn) — at 60s a 15-second pod has only ~25% chance
   # of being captured in a scrape; at 20s the capture probability is ~75%.
   # vmagent's own footprint is series-driven, not scrape-rate-driven, so a
-  # lower cAdvisor interval barely moves the scraper's memory or CPU. The
-  # cost falls on the receiving side (api + redis + uploader) instead, which
-  # is what these defaults are tuned to protect.
+  # lower cAdvisor interval barely moves the scraper's memory or CPU.
   #
   # KSM and kubelet rarely benefit from sub-60s scraping; the API server is
   # the bottleneck for KSM, and storage capacity changes slowly.
@@ -310,12 +154,12 @@ vmagent:
     cadvisor: "60s"
     kubelet: "60s"
   # Disk usage cap for vmagent's remote_write retry queue per remote_write URL.
-  # vmagent buffers samples here when the API is unreachable; size to cover the
-  # longest acceptable outage window.
-  maxDiskUsagePerURL: "5GB"
+  # vmagent buffers samples here when the agent is unreachable; size this to
+  # cover the longest acceptable outage window.
+  maxDiskUsagePerURL: "20GB"
   persistence:
     enabled: true
-    size: 10Gi
+    size: 30Gi
     storageClassName: ""
   resources:
     requests:

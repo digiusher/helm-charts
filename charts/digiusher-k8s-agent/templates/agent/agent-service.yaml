@@ -1,0 +1,18 @@
+{{- if .Values.agent.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "digiusher-k8s-agent.agent.fullname" . }}
+  labels:
+    {{- include "digiusher-k8s-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+spec:
+  clusterIP: None
+  ports:
+    - name: http
+      port: {{ .Values.agent.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "digiusher-k8s-agent.agent.selectorLabels" . | nindent 4 }}
+{{- end }}

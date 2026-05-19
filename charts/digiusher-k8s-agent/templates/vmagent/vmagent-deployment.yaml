@@ -36,7 +36,12 @@ spec:
           {{- end }}
           args:
             - -promscrape.config=/config/prometheus.yml
-            - -remoteWrite.url=http://{{ include "digiusher-k8s-agent.api.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }}/api/v1/write
+            - -remoteWrite.url=http://{{ include "digiusher-k8s-agent.agent.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.agent.service.port }}/api/v1/write
+            # Force Prometheus remote_write protocol. The receiver only speaks
+            # Prometheus snappy+protobuf; without this flag vmagent sends its
+            # native zstd-encoded protocol first, gets rejected, and re-packs
+            # as Prometheus — every block sent twice.
+            - -remoteWrite.forcePromProto=true
             - -remoteWrite.tmpDataPath=/vmagent-data
             - -remoteWrite.maxDiskUsagePerURL={{ .Values.vmagent.maxDiskUsagePerURL | default "5GB" }}
             - -httpListenAddr=:8429

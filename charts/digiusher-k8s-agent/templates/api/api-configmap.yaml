@@ -3,10 +3,13 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Values.api.name }}-cm
+  name: {{ include "digiusher-k8s-agent.api.fullname" . }}
+  labels:
+    {{- include "digiusher-k8s-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
 data:
   {{- if .Values.redis.enabled }}
-  REDIS_URL: "redis://{{ .Values.redis.service.name }}:{{ .Values.redis.service.port }}"
+  REDIS_URL: "redis://{{ include "digiusher-k8s-agent.redis.fullname" . }}:{{ .Values.redis.service.port }}"
   {{- else }}
   REDIS_URL: {{ .Values.global.redis_url | quote }}
   {{- end }}

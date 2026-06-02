@@ -85,6 +85,12 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if not .Values.agent.persistence.enabled }}
+      volumes:
+        - name: data
+          emptyDir: {}
+      {{- end }}
+  {{- if .Values.agent.persistence.enabled }}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -100,4 +106,5 @@ spec:
         {{- with .Values.agent.persistence.storageClassName }}
         storageClassName: {{ . }}
         {{- end }}
+  {{- end }}
 {{- end }}

@@ -28,9 +28,10 @@ serviceAccount:
   name: ""
 
 #########################################
-# Agent — the collapsed Go binary that receives Prometheus remote_write from
-# vmagent, aggregates in memory, snapshots to PV for crash recovery, builds
-# parquet at window close, and uploads via pre-signed S3 URL.
+# Agent — the Go binary that receives Prometheus remote_write from vmagent,
+# streams raw samples straight to native parquet on disk (flat memory,
+# no in-memory window buffer), and uploads completed files via a pre-signed S3
+# URL. The PV holds pending/in-flight parquet for durability across restarts.
 #########################################
 agent:
   enabled: true
@@ -59,25 +60,32 @@ agent:
     size: 20Gi
     storageClassName: ""
     mountPath: /var/lib/digiusher-agent/pending
-  # Memory scales with active series count (~750 bytes/series).
-  # 1Gi covers clusters up to ~1000 nodes.
-  # Increase to 2Gi for larger clusters or if OOMKilled events appear.
+  # Memory is a low, flat target. The agent streams rows to disk with a bounded
+  # row-group buffer and paces its Go heap with GOMEMLIMIT (see goMemLimit
+  # below), so resident memory stays flat and does not scale with series
+  # cardinality or cluster size. The limit sits above the GOMEMLIMIT target with
+  # headroom for the runtime and reclaimable page cache.
   resources:
     requests:
       cpu: 200m
-      memory: 256Mi
+      memory: 128Mi
     limits:
       cpu: 2000m
-      memory: 1Gi
+      memory: 640Mi
+  # Soft Go heap ceiling. Paces GC to keep resident memory bounded well under
+  # the limit above, giving the container a flat, predictable footprint instead
+  # of one that grows with load. Keep it below limits.memory with headroom. Uses
+  # Go's size format (MiB/GiB), which differs from the Kubernetes quantity above.
+  goMemLimit: "460MiB"
   env:
     # Required — provided by the DigiUsher team. Secret only renders when this
     # is non-empty; the agent fails fast on startup if the env var is missing.
     digiusher_k8s_api_token: ""
     digiusher_k8s_api_url: "https://app.digiusher.com/api/v3"
     log_level: "info"
-  # Raw `env:` entries for advanced overrides (e.g., SNAPSHOT_TICK_SECONDS,
-  # UPLOAD_TICK_SECONDS, MAX_REQUEST_BYTES). The agent's built-in defaults
-  # are correct for this chart's design ceilings; override only when needed.
+  # Raw `env:` entries for advanced overrides (e.g., UPLOAD_TICK_SECONDS,
+  # MAX_REQUEST_BYTES). The agent's built-in defaults are correct for this
+  # chart's design ceilings; override only when needed.
   extraEnv: []
   # Distroless `nonroot` (UID 65532).
   podSecurityContext:
@@ -94,12 +102,15 @@ agent:
     allowPrivilegeEscalation: false
     runAsNonRoot: true
     runAsUser: 65532
+  # Readiness now flips after a fast staging-dir scan (no snapshot load), so the
+  # startup budget no longer needs to cover a slow recovery: 12 × 10s = 120s,
+  # ample headroom for image pull + PVC attach.
   startupProbe:
     httpGet:
       path: /readyz
       port: http
     periodSeconds: 10
-    failureThreshold: 18
+    failureThreshold: 12
   livenessProbe:
     httpGet:
       path: /healthz
@@ -147,12 +158,46 @@ vmagent:
   # vmagent's own footprint is series-driven, not scrape-rate-driven, so a
   # lower cAdvisor interval barely moves the scraper's memory or CPU.
   #
-  # KSM and kubelet rarely benefit from sub-60s scraping; the API server is
-  # the bottleneck for KSM, and storage capacity changes slowly.
+  # Tighten KSM (e.g. ~20–30s) to catch short-lived pods/jobs before they
+  # vanish — the agent's change-detection keeps downstream volume bounded, so a
+  # faster KSM scrape costs API-server read load, not downstream samples.
+  # Validate kube-apiserver headroom before going low. kubelet stays at 60s;
+  # storage capacity changes slowly.
   intervals:
     ksm: "60s"
     cadvisor: "60s"
     kubelet: "60s"
+  # GPU metrics via dcgm-exporter, for GPU cost/utilization. ON by default:
+  # vmagent discovers the dcgm-exporter Service endpoints (e.g. the NVIDIA GPU
+  # operator's, in the gpu-operator namespace) and scrapes a targeted metric
+  # set. When no dcgm-exporter is present the scrape job finds no targets — a
+  # harmless no-op — so non-GPU clusters pay nothing and GPU clusters start
+  # collecting the moment the exporter exists. Set false to opt out.
+  dcgm:
+    enabled: true
+    namespace: "gpu-operator"            # set to "" to scan all namespaces
+    # Service label selector. selectorLabelName must be the underscore-sanitized
+    # label key as vmagent exposes it (dots/slashes become underscores).
+    selectorLabelName: "app_kubernetes_io_name"
+    selectorLabelValue: "dcgm-exporter"
+    port: "9400"
+    interval: "60s"
+  # Node-level utilization via node-exporter, for node-consolidation analysis.
+  # ON by default: vmagent discovers the node-exporter Service endpoints and
+  # scrapes a curated node CPU/memory/filesystem/disk/network/load set. When no
+  # node-exporter Service is present the scrape job simply finds no targets — a
+  # harmless no-op — so leaving it on costs nothing on clusters without one and
+  # starts collecting the moment one exists (no chart change needed). Set false
+  # to opt out of scraping an existing node-exporter.
+  nodeExporter:
+    enabled: true
+    namespace: ""                        # "" scans all namespaces (location varies by install)
+    # Service label selector. selectorLabelName must be the underscore-sanitized
+    # label key as vmagent exposes it (dots/slashes become underscores).
+    selectorLabelName: "app_kubernetes_io_name"
+    selectorLabelValue: "node-exporter"
+    port: "9100"
+    interval: "60s"
   # Disk usage cap for vmagent's remote_write retry queue per remote_write URL.
   # vmagent buffers samples here when the agent is unreachable; size this to
   # cover the longest acceptable outage window.
@@ -161,13 +206,15 @@ vmagent:
     enabled: true
     size: 30Gi
     storageClassName: ""
+  # Memory request only; the limit is left unset — set one sized to your
+  # cluster if you want a hard ceiling.
+  # vmagent's footprint is series-driven, bounded by the keep-list above.
   resources:
     requests:
       cpu: 200m
       memory: 256Mi
     limits:
       cpu: 500m
-      memory: 512Mi
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -194,8 +241,22 @@ vmagent:
 # Kube State Metrics configurations
 #########################################
 kube-state-metrics:
+  # Memory request only; the limit is left unset — set one sized to your
+  # cluster if you want a hard ceiling.
+  # KSM memory scales with cluster object count.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
   extraArgs:
     - "--metric-labels-allowlist=pods=[*],nodes=[*],services=[selector],resourcequotas=[*],jobs=[*],namespaces=[*],endpoints=[*]"
+    # Annotation-based cost allocation. KSM emits no annotations by default;
+    # this surfaces the keys your org tags with for chargeback. Set the keys to
+    # match your conventions (cost-center / team / owner, etc.). Do NOT use
+    # [*] — it pulls in huge annotations like
+    # kubectl.kubernetes.io/last-applied-configuration and explodes cardinality.
+    # Overriding extraArgs replaces the whole list, so keep the line above too.
+    - "--metric-annotations-allowlist=pods=[team,cost-center,owner],namespaces=[team,cost-center,owner]"
   podLabels:
     owner: digiusher-k8s
     component: external

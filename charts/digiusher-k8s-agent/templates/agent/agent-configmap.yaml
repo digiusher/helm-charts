@@ -10,4 +10,5 @@ data:
   K8S_API_URL: {{ .Values.agent.env.digiusher_k8s_api_url | quote }}
   LOG_LEVEL: {{ .Values.agent.env.log_level | quote }}
   PV_DIR: {{ .Values.agent.persistence.mountPath | quote }}
+  GOMEMLIMIT: {{ .Values.agent.goMemLimit | quote }}
 {{- end }}

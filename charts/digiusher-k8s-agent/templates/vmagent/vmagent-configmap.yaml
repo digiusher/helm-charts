@@ -9,7 +9,7 @@ metadata:
 data:
   prometheus.yml: |
     # Per-job intervals are configured via vmagent.intervals in values.yaml.
-    # Defaults are 60s; tighten cadvisor specifically if you need to capture
+    # Defaults are 60s; tighten KSM (metadata) or cadvisor (usage) to capture
     # short-lived pods. See the values.yaml comment for the full rationale.
     global:
       scrape_interval: 60s
@@ -26,7 +26,7 @@ data:
         metric_relabel_configs:
           - source_labels: [__name__]
             action: keep
-            regex: "kube_daemonset_created|kube_daemonset_labels|kube_daemonset_status_current_number_scheduled|kube_daemonset_status_desired_number_scheduled|kube_daemonset_status_number_available|kube_daemonset_status_number_misscheduled|kube_daemonset_status_number_ready|kube_daemonset_status_number_unavailable|kube_deployment_created|kube_deployment_labels|kube_deployment_status_replicas|kube_deployment_status_replicas_available|kube_deployment_status_replicas_ready|kube_deployment_status_replicas_unavailable|kube_namespace_created|kube_namespace_labels|kube_namespace_status_phase|kube_node_created|kube_node_info|kube_node_labels|kube_node_role|kube_node_status_addresses|kube_node_status_allocatable|kube_node_status_capacity|kube_node_status_condition|kube_pod_created|kube_pod_info|kube_pod_labels|kube_pod_start_time|kube_pod_status_phase|kube_pod_container_resource_limits|kube_pod_container_resource_requests|kube_replicaset_created|kube_replicaset_labels|kube_replicaset_owner|kube_replicaset_status_ready_replicas|kube_replicaset_status_replicas|kube_resourcequota|kube_resourcequota_created|kube_resourcequota_labels|kube_service_created|kube_service_info|kube_service_labels|kube_service_spec_type|kube_cronjob_created|kube_cronjob_info|kube_cronjob_labels|kube_cronjob_next_schedule_time|kube_cronjob_status_active|kube_cronjob_status_last_schedule_time|kube_cronjob_status_last_successful_time|kube_job_created|kube_job_labels|kube_job_owner|kube_job_spec_completions|kube_job_spec_parallelism|kube_job_status_active|kube_job_status_completion_time|kube_job_status_failed|kube_job_status_start_time|kube_job_status_succeeded|kube_persistentvolume_capacity_bytes|kube_persistentvolume_created|kube_persistentvolume_info|kube_persistentvolume_labels|kube_persistentvolume_status_phase|kube_persistentvolume_volume_mode|kube_persistentvolumeclaim_access_mode|kube_persistentvolumeclaim_created|kube_persistentvolumeclaim_info|kube_persistentvolumeclaim_labels|kube_persistentvolumeclaim_resource_requests_storage_bytes|kube_persistentvolumeclaim_status_condition|kube_persistentvolumeclaim_status_phase|kube_replicationcontroller_created|kube_replicationcontroller_owner|kube_replicationcontroller_status_available_replicas|kube_replicationcontroller_status_fully_labeled_replicas|kube_replicationcontroller_status_ready_replicas|kube_replicationcontroller_status_replicas|kube_statefulset_created|kube_statefulset_labels|kube_statefulset_persistentvolumeclaim_retention_policy|kube_statefulset_replicas|kube_statefulset_status_replicas|kube_statefulset_status_replicas_available|kube_statefulset_status_replicas_current|kube_statefulset_status_replicas_ready|kube_statefulset_status_replicas_updated|kube_storageclass_created|kube_storageclass_info|kube_storageclass_labels|kube_pod_spec_volumes_persistentvolumeclaims_info"
+            regex: "kube_daemonset_created|kube_daemonset_labels|kube_daemonset_status_current_number_scheduled|kube_daemonset_status_desired_number_scheduled|kube_daemonset_status_number_available|kube_daemonset_status_number_misscheduled|kube_daemonset_status_number_ready|kube_daemonset_status_number_unavailable|kube_deployment_created|kube_deployment_labels|kube_deployment_status_replicas|kube_deployment_status_replicas_available|kube_deployment_status_replicas_ready|kube_deployment_status_replicas_unavailable|kube_namespace_created|kube_namespace_labels|kube_namespace_status_phase|kube_node_created|kube_node_info|kube_node_labels|kube_node_role|kube_node_status_addresses|kube_node_status_allocatable|kube_node_status_capacity|kube_node_status_condition|kube_pod_created|kube_pod_info|kube_pod_labels|kube_pod_start_time|kube_pod_status_phase|kube_pod_container_resource_limits|kube_pod_container_resource_requests|kube_pod_container_status_restarts_total|kube_pod_container_status_last_terminated_reason|kube_replicaset_created|kube_replicaset_labels|kube_replicaset_owner|kube_replicaset_status_ready_replicas|kube_replicaset_status_replicas|kube_resourcequota|kube_resourcequota_created|kube_resourcequota_labels|kube_service_created|kube_service_info|kube_service_labels|kube_service_spec_type|kube_cronjob_created|kube_cronjob_info|kube_cronjob_labels|kube_cronjob_next_schedule_time|kube_cronjob_status_active|kube_cronjob_status_last_schedule_time|kube_cronjob_status_last_successful_time|kube_job_created|kube_job_labels|kube_job_owner|kube_job_spec_completions|kube_job_spec_parallelism|kube_job_status_active|kube_job_status_completion_time|kube_job_status_failed|kube_job_status_start_time|kube_job_status_succeeded|kube_persistentvolume_capacity_bytes|kube_persistentvolume_created|kube_persistentvolume_info|kube_persistentvolume_labels|kube_persistentvolume_status_phase|kube_persistentvolume_volume_mode|kube_persistentvolumeclaim_access_mode|kube_persistentvolumeclaim_created|kube_persistentvolumeclaim_info|kube_persistentvolumeclaim_labels|kube_persistentvolumeclaim_resource_requests_storage_bytes|kube_persistentvolumeclaim_status_condition|kube_persistentvolumeclaim_status_phase|kube_replicationcontroller_created|kube_replicationcontroller_owner|kube_replicationcontroller_status_available_replicas|kube_replicationcontroller_status_fully_labeled_replicas|kube_replicationcontroller_status_ready_replicas|kube_replicationcontroller_status_replicas|kube_statefulset_created|kube_statefulset_labels|kube_statefulset_persistentvolumeclaim_retention_policy|kube_statefulset_replicas|kube_statefulset_status_replicas|kube_statefulset_status_replicas_available|kube_statefulset_status_replicas_current|kube_statefulset_status_replicas_ready|kube_statefulset_status_replicas_updated|kube_storageclass_created|kube_storageclass_info|kube_storageclass_labels|kube_pod_spec_volumes_persistentvolumeclaims_info|kube_horizontalpodautoscaler_info|kube_horizontalpodautoscaler_labels|kube_horizontalpodautoscaler_spec_max_replicas|kube_horizontalpodautoscaler_spec_min_replicas|kube_horizontalpodautoscaler_status_current_replicas|kube_horizontalpodautoscaler_status_desired_replicas|kube_horizontalpodautoscaler_status_condition|kube_poddisruptionbudget_created|kube_poddisruptionbudget_labels|kube_poddisruptionbudget_status_current_healthy|kube_poddisruptionbudget_status_desired_healthy|kube_poddisruptionbudget_status_pod_disruptions_allowed|kube_poddisruptionbudget_status_expected_pods|kube_poddisruptionbudget_status_total_pods"
 
       # cAdvisor: per-container CPU/memory/network from each kubelet.
       # Default 60s; tighten to ~20s for workloads with many short-lived pods
@@ -55,7 +55,7 @@ data:
             regex: "__name__|container|id|name|namespace|pod|interface"
           - source_labels: [__name__]
             action: keep
-            regex: "container_cpu_usage_seconds_total|container_memory_usage_bytes|container_network_receive_bytes_total|container_network_transmit_bytes_total"
+            regex: "container_cpu_usage_seconds_total|container_cpu_cfs_throttled_periods_total|container_cpu_cfs_periods_total|container_memory_usage_bytes|container_memory_working_set_bytes|container_memory_rss|container_memory_cache|container_memory_swap|container_network_receive_bytes_total|container_network_transmit_bytes_total"
           # Network metrics: keep only pod-level (container=""), drop per-container
           - source_labels: [__name__, container]
             action: drop
@@ -65,6 +65,46 @@ data:
           - source_labels: [__name__, interface]
             action: drop
             regex: "container_network_.*_bytes_total;([^e]|e[^t]|et[^h]).*"
+
+      {{- if .Values.vmagent.dcgm.enabled }}
+      # GPU metrics from dcgm-exporter (e.g. the NVIDIA GPU operator's DaemonSet,
+      # typically port 9400). Off by default; assumes the exporter already runs
+      # in-cluster — no GPU workload is bundled. Namespace/selector/port are
+      # overridable via vmagent.dcgm in values.yaml.
+      - job_name: dcgm_scraper
+        scrape_interval: {{ .Values.vmagent.dcgm.interval | default "60s" }}
+        scrape_timeout: 10s
+        kubernetes_sd_configs:
+          - role: endpoints
+            {{- with .Values.vmagent.dcgm.namespace }}
+            namespaces:
+              names:
+                - {{ . }}
+            {{- end }}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_label_{{ .Values.vmagent.dcgm.selectorLabelName }}]
+            regex: {{ .Values.vmagent.dcgm.selectorLabelValue | quote }}
+            action: keep
+          # Endpoints SD has no port-number meta-label; the only numeric-port
+          # source is __address__. Prometheus keep-regexes are fully anchored.
+          - source_labels: [__address__]
+            regex: ".*:{{ .Values.vmagent.dcgm.port }}"
+            action: keep
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            action: keep
+            regex: "DCGM_FI_DEV_GPU_UTIL|DCGM_FI_DEV_MEM_COPY_UTIL|DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION|DCGM_FI_DEV_POWER_USAGE|DCGM_FI_DEV_FB_USED|DCGM_FI_DEV_FB_FREE|DCGM_FI_PROF_SM_ACTIVE|DCGM_FI_PROF_PIPE_TENSOR_ACTIVE|DCGM_FI_PROF_DRAM_ACTIVE"
+          # dcgm-exporter labels the node as Hostname; promote it to `node`.
+          - source_labels: [Hostname]
+            target_label: node
+            action: replace
+          # Keep identity only: gpu/UUID/device/modelName ride the usage
+          # dimensions map; namespace/pod/container are present when the
+          # exporter's kubernetes mapping is enabled. The labelkeep also drops
+          # Hostname, instance, and job.
+          - action: labelkeep
+            regex: "__name__|namespace|pod|container|node|gpu|UUID|device|modelName|pci_bus_id"
+      {{- end }}
 
       # Kubelet /metrics for PVC volume stats. Storage capacity changes
       # slowly; 60s is plenty.
@@ -91,4 +131,45 @@ data:
             regex: "kubelet_volume_stats_used_bytes|kubelet_volume_stats_capacity_bytes|kubelet_volume_stats_available_bytes"
           - action: labelkeep
             regex: "__name__|namespace|persistentvolumeclaim|node|instance|job"
+
+      {{- if .Values.vmagent.nodeExporter.enabled }}
+      # Node-level utilization from node-exporter, for node-consolidation /
+      # bin-packing analysis (the gap between node allocatable and actual node
+      # usage is stranded spend that container sums under-count by the
+      # system/kubelet/OS overhead). Off by default; assumes node-exporter
+      # already runs in-cluster — this chart deploys no node-exporter. A
+      # curated keep-list (CPU/memory/filesystem/disk/network/load) keeps the
+      # per-node series count well below node-exporter's ~270-series default.
+      # Namespace/selector/port are overridable via vmagent.nodeExporter.
+      - job_name: node_exporter_scraper
+        scrape_interval: {{ .Values.vmagent.nodeExporter.interval | default "60s" }}
+        scrape_timeout: 10s
+        kubernetes_sd_configs:
+          - role: endpoints
+            {{- with .Values.vmagent.nodeExporter.namespace }}
+            namespaces:
+              names:
+                - {{ . }}
+            {{- end }}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_label_{{ .Values.vmagent.nodeExporter.selectorLabelName }}]
+            regex: {{ .Values.vmagent.nodeExporter.selectorLabelValue | quote }}
+            action: keep
+          - source_labels: [__address__]
+            regex: ".*:{{ .Values.vmagent.nodeExporter.port }}"
+            action: keep
+          # node-exporter has no `node` label; attribute each series to the
+          # node its DaemonSet pod runs on.
+          - source_labels: [__meta_kubernetes_pod_node_name]
+            target_label: node
+            action: replace
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            action: keep
+            regex: "node_cpu_seconds_total|node_memory_MemTotal_bytes|node_memory_MemAvailable_bytes|node_memory_MemFree_bytes|node_memory_Cached_bytes|node_memory_Buffers_bytes|node_memory_Active_bytes|node_memory_Inactive_bytes|node_filesystem_size_bytes|node_filesystem_avail_bytes|node_filesystem_free_bytes|node_disk_read_bytes_total|node_disk_written_bytes_total|node_network_receive_bytes_total|node_network_transmit_bytes_total|node_load1"
+          # Keep node + the few intra-metric breakdown labels; drop instance,
+          # job, pod, endpoint, etc.
+          - action: labelkeep
+            regex: "__name__|node|cpu|mode|device|mountpoint|fstype"
+      {{- end }}
 {{- end }}

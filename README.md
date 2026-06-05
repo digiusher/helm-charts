@@ -22,7 +22,7 @@ To install the `digiusher-k8s-agent` chart:
 
 ```console
 helm install digiusher-k8s-agent digiusher/digiusher-k8s-agent \
---set uploader.env.digiusher_k8s_api_token=<insert_api_token> \
+--set agent.env.digiusher_k8s_api_token=<insert_api_token> \
 --namespace digiusher-k8s \
 --create-namespace
 ```

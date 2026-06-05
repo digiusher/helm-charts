@@ -1,0 +1,94 @@
+{{- if .Values.vmagent.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "digiusher-k8s-agent.vmagent.fullname" . }}
+  labels:
+    {{- include "digiusher-k8s-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: vmagent
+data:
+  prometheus.yml: |
+    # Per-job intervals are configured via vmagent.intervals in values.yaml.
+    # Defaults are 60s; tighten cadvisor specifically if you need to capture
+    # short-lived pods. See the values.yaml comment for the full rationale.
+    global:
+      scrape_interval: 60s
+      scrape_timeout: 10s
+
+    scrape_configs:
+      # KSM cluster metadata — pod/workload/PVC objects via the API server.
+      - job_name: ksm_scraper
+        scrape_interval: {{ .Values.vmagent.intervals.ksm | default "60s" }}
+        scrape_timeout: 10s
+        static_configs:
+          - targets:
+              - {{ include "digiusher-k8s-agent.ksm.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:8080
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            action: keep
+            regex: "kube_daemonset_created|kube_daemonset_labels|kube_daemonset_status_current_number_scheduled|kube_daemonset_status_desired_number_scheduled|kube_daemonset_status_number_available|kube_daemonset_status_number_misscheduled|kube_daemonset_status_number_ready|kube_daemonset_status_number_unavailable|kube_deployment_created|kube_deployment_labels|kube_deployment_status_replicas|kube_deployment_status_replicas_available|kube_deployment_status_replicas_ready|kube_deployment_status_replicas_unavailable|kube_namespace_created|kube_namespace_labels|kube_namespace_status_phase|kube_node_created|kube_node_info|kube_node_labels|kube_node_role|kube_node_status_addresses|kube_node_status_allocatable|kube_node_status_capacity|kube_node_status_condition|kube_pod_created|kube_pod_info|kube_pod_labels|kube_pod_start_time|kube_pod_status_phase|kube_pod_container_resource_limits|kube_pod_container_resource_requests|kube_replicaset_created|kube_replicaset_labels|kube_replicaset_owner|kube_replicaset_status_ready_replicas|kube_replicaset_status_replicas|kube_resourcequota|kube_resourcequota_created|kube_resourcequota_labels|kube_service_created|kube_service_info|kube_service_labels|kube_service_spec_type|kube_cronjob_created|kube_cronjob_info|kube_cronjob_labels|kube_cronjob_next_schedule_time|kube_cronjob_status_active|kube_cronjob_status_last_schedule_time|kube_cronjob_status_last_successful_time|kube_job_created|kube_job_labels|kube_job_owner|kube_job_spec_completions|kube_job_spec_parallelism|kube_job_status_active|kube_job_status_completion_time|kube_job_status_failed|kube_job_status_start_time|kube_job_status_succeeded|kube_persistentvolume_capacity_bytes|kube_persistentvolume_created|kube_persistentvolume_info|kube_persistentvolume_labels|kube_persistentvolume_status_phase|kube_persistentvolume_volume_mode|kube_persistentvolumeclaim_access_mode|kube_persistentvolumeclaim_created|kube_persistentvolumeclaim_info|kube_persistentvolumeclaim_labels|kube_persistentvolumeclaim_resource_requests_storage_bytes|kube_persistentvolumeclaim_status_condition|kube_persistentvolumeclaim_status_phase|kube_replicationcontroller_created|kube_replicationcontroller_owner|kube_replicationcontroller_status_available_replicas|kube_replicationcontroller_status_fully_labeled_replicas|kube_replicationcontroller_status_ready_replicas|kube_replicationcontroller_status_replicas|kube_statefulset_created|kube_statefulset_labels|kube_statefulset_persistentvolumeclaim_retention_policy|kube_statefulset_replicas|kube_statefulset_status_replicas|kube_statefulset_status_replicas_available|kube_statefulset_status_replicas_current|kube_statefulset_status_replicas_ready|kube_statefulset_status_replicas_updated|kube_storageclass_created|kube_storageclass_info|kube_storageclass_labels|kube_pod_spec_volumes_persistentvolumeclaims_info"
+
+      # cAdvisor: per-container CPU/memory/network from each kubelet.
+      # Default 60s; tighten to ~20s for workloads with many short-lived pods
+      # (capture probability for a 15s pod goes from ~25% at 60s to ~75% at 20s).
+      - job_name: cadvisor_scraper
+        scrape_interval: {{ .Values.vmagent.intervals.cadvisor | default "60s" }}
+        scrape_timeout: 10s
+        kubernetes_sd_configs:
+          - role: node
+        scheme: https
+        metrics_path: /metrics/cadvisor
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          insecure_skip_verify: true
+        # Force port 10250 (kubelet HTTPS) regardless of what node SD returns
+        relabel_configs:
+          - source_labels: [__address__]
+            regex: ^(.*):.*$
+            replacement: $1:10250
+            target_label: __address__
+        metric_relabel_configs:
+          # No `node` label: container metrics are attributed to nodes on the
+          # backend via a pod→node join on kube_pod_info (kept by KSM), so node
+          # is intentionally dropped here to keep cardinality down.
+          - action: labelkeep
+            regex: "__name__|container|id|name|namespace|pod|interface"
+          - source_labels: [__name__]
+            action: keep
+            regex: "container_cpu_usage_seconds_total|container_memory_usage_bytes|container_network_receive_bytes_total|container_network_transmit_bytes_total"
+          # Network metrics: keep only pod-level (container=""), drop per-container
+          - source_labels: [__name__, container]
+            action: drop
+            regex: "container_network_.*_bytes_total;.+"
+          # Network metrics: drop non-eth interfaces (veth*, cali*, flannel*, cni0, tunl0, etc.)
+          # RE2 has no negative lookahead; trio pattern matches "anything not starting with eth".
+          - source_labels: [__name__, interface]
+            action: drop
+            regex: "container_network_.*_bytes_total;([^e]|e[^t]|et[^h]).*"
+
+      # Kubelet /metrics for PVC volume stats. Storage capacity changes
+      # slowly; 60s is plenty.
+      - job_name: kubelet_scraper
+        scrape_interval: {{ .Values.vmagent.intervals.kubelet | default "60s" }}
+        scrape_timeout: 10s
+        kubernetes_sd_configs:
+          - role: node
+        scheme: https
+        metrics_path: /metrics
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        tls_config:
+          insecure_skip_verify: true
+        relabel_configs:
+          - source_labels: [__address__]
+            regex: ^(.*):.*$
+            replacement: $1:10250
+            target_label: __address__
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+        metric_relabel_configs:
+          - source_labels: [__name__]
+            action: keep
+            regex: "kubelet_volume_stats_used_bytes|kubelet_volume_stats_capacity_bytes|kubelet_volume_stats_available_bytes"
+          - action: labelkeep
+            regex: "__name__|namespace|persistentvolumeclaim|node|instance|job"
+{{- end }}

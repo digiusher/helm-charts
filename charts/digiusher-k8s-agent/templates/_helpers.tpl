@@ -92,7 +92,9 @@ app.kubernetes.io/component: vmagent
 
 {{/*
 Resolve image reference based on global.useDevImages.
-Caller passes: (dict "image" .Values.<svc>.image "global" .Values.global)
+Caller passes: (dict "image" .Values.<svc>.image "global" .Values.global "appVersion" .Chart.AppVersion)
+When image.tag is empty it falls back to the chart's appVersion (the
+released image version), so the shipped image is single-sourced in Chart.yaml.
 */}}
 {{- define "digiusher-k8s-agent.image" -}}
 {{- if .global.useDevImages -}}
@@ -101,7 +103,7 @@ Caller passes: (dict "image" .Values.<svc>.image "global" .Values.global)
 {{- end -}}
 {{ .image.devRepository }}:{{ .image.devTag }}
 {{- else -}}
-{{ .image.repository }}:{{ .image.tag }}
+{{ .image.repository }}:{{ .image.tag | default .appVersion }}
 {{- end -}}
 {{- end }}
 

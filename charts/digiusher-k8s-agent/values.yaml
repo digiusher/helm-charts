@@ -40,10 +40,10 @@ agent:
     repository: ghcr.io/digiusher/digiusher-k8s-agent
     devRepository: ghcr.io/digiusher/digiusher-k8s-agent-dev
     pullPolicy: IfNotPresent
-    # Pin to a published SemVer tag in production so installs are reproducible
-    # across image pushes. The default below is a placeholder; override per
-    # release.
-    tag: "latest"
+    # Leave empty to ship the chart's appVersion (the released image version,
+    # single-sourced in Chart.yaml) — the reproducible default. Override only
+    # to run a specific build, e.g. --set agent.image.tag=<version-or-sha>.
+    tag: ""
     # Required when global.useDevImages=true. The *-dev package has no `latest`
     # tag, so this must be set to a SHA via --set agent.image.devTag=<sha>.
     devTag: ""

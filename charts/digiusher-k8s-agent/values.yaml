@@ -202,6 +202,14 @@ vmagent:
   # vmagent buffers samples here when the agent is unreachable; size this to
   # cover the longest acceptable outage window.
   maxDiskUsagePerURL: "20GB"
+  # Soft cap on the memory vmagent allows itself (Go's -memory.allowedBytes).
+  # vmagent transiently allocates a large heap at startup and frees it back to
+  # the OS afterward; this paces that so peak/startup memory stays bounded
+  # instead of briefly spiking well above steady state. Size it ABOVE your
+  # steady-state vmagent usage with headroom — set too low it raises CPU and
+  # can cause sample drops. Leave "" to use vmagent's own default (a fraction
+  # of the container/host memory).
+  memoryAllowedBytes: "1GB"
   persistence:
     enabled: true
     size: 30Gi
@@ -248,6 +256,15 @@ kube-state-metrics:
     requests:
       cpu: 50m
       memory: 128Mi
+  # Soft Go heap ceiling for kube-state-metrics. KSM allocates a large heap
+  # during its initial LIST of all cluster objects on startup and settles
+  # afterward; GOMEMLIMIT paces GC so that startup spike stays bounded instead
+  # of briefly peaking well above steady state. Size it ABOVE your steady-state
+  # KSM usage (which grows with object count) with headroom — set too low it
+  # drives GC CPU up. Remove this entry to leave KSM's heap uncapped.
+  env:
+    - name: GOMEMLIMIT
+      value: "1GiB"
   extraArgs:
     - "--metric-labels-allowlist=pods=[*],nodes=[*],services=[selector],resourcequotas=[*],jobs=[*],namespaces=[*],endpoints=[*]"
     # Annotation-based cost allocation. KSM emits no annotations by default;

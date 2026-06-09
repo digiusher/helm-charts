@@ -44,6 +44,10 @@ spec:
             - -remoteWrite.forcePromProto=true
             - -remoteWrite.tmpDataPath=/vmagent-data
             - -remoteWrite.maxDiskUsagePerURL={{ .Values.vmagent.maxDiskUsagePerURL | default "5GB" }}
+            {{- with .Values.vmagent.memoryAllowedBytes }}
+            # Soft memory cap; bounds vmagent's startup/peak heap. See values.yaml.
+            - -memory.allowedBytes={{ . }}
+            {{- end }}
             - -httpListenAddr=:8429
             - -loggerFormat=json
           ports:

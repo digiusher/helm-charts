@@ -77,6 +77,12 @@ agent:
   # of one that grows with load. Keep it below limits.memory with headroom. Uses
   # Go's size format (MiB/GiB), which differs from the Kubernetes quantity above.
   goMemLimit: "1280MiB"
+  # ClusterRole + ClusterRoleBinding for the agent's API access (see informers
+  # below). Set create=false to manage them out of band — e.g. restricted
+  # clusters (OpenShift, strict namespace isolation) where the installing user
+  # can't create cluster-scoped resources and an admin pre-creates them.
+  rbac:
+    create: true
   # In-process metadata: the agent watches the Kubernetes API via informers and
   # synthesizes the kube_* object metadata itself (no kube-state-metrics). This
   # requires the ClusterRole in templates/agent/agent-rbac.yaml (get/list/watch

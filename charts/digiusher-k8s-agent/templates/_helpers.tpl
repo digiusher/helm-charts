@@ -69,15 +69,6 @@ two installs in one namespace don't collide.
 {{- end }}
 
 {{/*
-KSM service name. Mirrors the kube-state-metrics subchart's own fullname
-output for any release name not containing "kube-state-metrics" and where
-KSM has no fullnameOverride — both reasonable assumptions for this chart.
-*/}}
-{{- define "digiusher-k8s-agent.ksm.fullname" -}}
-{{- printf "%s-kube-state-metrics" .Release.Name | trunc 63 | trimSuffix "-" -}}
-{{- end }}
-
-{{/*
 Per-component selector labels. Each Deployment selects only its own pods.
 */}}
 {{- define "digiusher-k8s-agent.agent.selectorLabels" -}}

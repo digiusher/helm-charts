@@ -11,4 +11,13 @@ data:
   LOG_LEVEL: {{ .Values.agent.env.log_level | quote }}
   PV_DIR: {{ .Values.agent.persistence.mountPath | quote }}
   GOMEMLIMIT: {{ .Values.agent.goMemLimit | quote }}
+  # In-process metadata (informers). The agent watches the Kubernetes API and
+  # synthesizes the kube_* surface itself; see agent.informers in values.yaml.
+  EMIT_INTERVAL_SECONDS: {{ .Values.agent.informers.emitIntervalSeconds | quote }}
+  INFORMERS_ANNOTATION_KEYS: {{ .Values.agent.informers.annotationKeys | quote }}
+  KUBEMETA_DISABLED_KINDS: {{ .Values.agent.informers.disabledKinds | quote }}
+  ENABLE_PARITY_EXPORT: {{ .Values.agent.informers.enableParityExport | quote }}
+  {{- with .Values.agent.informers.kubeconfig }}
+  KUBEMETA_KUBECONFIG: {{ . | quote }}
+  {{- end }}
 {{- end }}

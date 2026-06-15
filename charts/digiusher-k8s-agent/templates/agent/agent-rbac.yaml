@@ -1,0 +1,55 @@
+{{- if .Values.agent.enabled }}
+# The agent watches the Kubernetes API via informers and synthesizes object
+# metadata in-process. This grants get/list/watch on exactly the kinds it
+# watches, bound to the agent ServiceAccount.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "digiusher-k8s-agent.agent.fullname" . }}
+  labels:
+    {{- include "digiusher-k8s-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - nodes
+      - namespaces
+      - replicationcontrollers
+      - services
+      - resourcequotas
+      - persistentvolumes
+      - persistentvolumeclaims
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: [deployments, daemonsets, replicasets, statefulsets]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: [jobs, cronjobs]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: [horizontalpodautoscalers]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["policy"]
+    resources: [poddisruptionbudgets]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: [storageclasses]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "digiusher-k8s-agent.agent.fullname" . }}
+  labels:
+    {{- include "digiusher-k8s-agent.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "digiusher-k8s-agent.agent.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "digiusher-k8s-agent.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

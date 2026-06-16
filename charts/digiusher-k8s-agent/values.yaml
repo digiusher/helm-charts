@@ -17,6 +17,32 @@ global:
   imagePullSecrets: []
 
 #########################################
+# Resource sizing across cluster sizes
+#
+# The two components scale differently, so they tune differently:
+#
+#   Agent — FLAT. It streams samples straight to disk and paces its Go heap
+#     with GOMEMLIMIT, so its memory does not grow with cluster size or series
+#     cardinality. The default (agent.resources + agent.goMemLimit) is intended
+#     to fit clusters of any size as-is — you do NOT raise it as you grow. On
+#     small clusters you may lower agent.resources.limits.memory and
+#     agent.goMemLimit together (keep GOMEMLIMIT below the limit with headroom)
+#     to reclaim a little overhead, but it is rarely worth it.
+#
+#   vmagent — SERIES-DRIVEN. Its footprint grows with the number of active
+#     series it scrapes (roughly nodes x pods x kept metrics), not with scrape
+#     rate. The defaults (vmagent.memoryAllowedBytes, vmagent.resources) carry a
+#     generous cluster comfortably. For large / high-cardinality clusters this
+#     is the component to size up: raise vmagent.memoryAllowedBytes with headroom
+#     above steady-state usage and set an explicit vmagent.resources.limits.memory
+#     (left unset by default) if you want a hard ceiling. On small clusters the
+#     defaults are already ample.
+#
+# Rule of thumb: if memory pressure appears as you scale, it is vmagent — the
+# agent stays flat. Per-component tuning notes live with each stanza below.
+#########################################
+
+#########################################
 # Service Account
 #########################################
 serviceAccount:
@@ -64,7 +90,8 @@ agent:
   # row-group buffer and paces its Go heap with GOMEMLIMIT (see goMemLimit
   # below), so resident memory stays flat and does not scale with series
   # cardinality or cluster size. The limit sits above the GOMEMLIMIT target with
-  # headroom for the runtime and reclaimable page cache.
+  # headroom for the runtime and reclaimable page cache. This default fits any
+  # cluster size as-is — see "Resource sizing across cluster sizes" up top.
   resources:
     requests:
       cpu: 200m
@@ -238,7 +265,10 @@ vmagent:
     storageClassName: ""
   # Memory request only; the limit is left unset — set one sized to your
   # cluster if you want a hard ceiling.
-  # vmagent's footprint is series-driven, bounded by the keep-list above.
+  # vmagent's footprint is series-driven, bounded by the keep-list above. This
+  # is the component to size up on large / high-cardinality clusters (raise
+  # memoryAllowedBytes, optionally set a limit here) — see "Resource sizing
+  # across cluster sizes" up top.
   resources:
     requests:
       cpu: 200m

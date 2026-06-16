@@ -39,11 +39,13 @@ data:
           # No `node` label: container metrics are attributed to nodes on the
           # backend via a pod→node join on kube_pod_info (synthesized in-process
           # by the agent), so node is intentionally dropped here for cardinality.
+          # `device` is kept for the per-device container_fs_* series below; it is
+          # absent on the cpu/memory/network families so it costs nothing there.
           - action: labelkeep
-            regex: "__name__|container|id|name|namespace|pod|interface"
+            regex: "__name__|container|id|name|namespace|pod|interface|device"
           - source_labels: [__name__]
             action: keep
-            regex: "container_cpu_usage_seconds_total|container_cpu_cfs_throttled_periods_total|container_cpu_cfs_periods_total|container_memory_usage_bytes|container_memory_working_set_bytes|container_memory_rss|container_memory_cache|container_memory_swap|container_network_receive_bytes_total|container_network_transmit_bytes_total"
+            regex: "container_cpu_usage_seconds_total|container_cpu_cfs_throttled_periods_total|container_cpu_cfs_periods_total|container_memory_usage_bytes|container_memory_working_set_bytes|container_memory_rss|container_memory_cache|container_memory_swap|container_network_receive_bytes_total|container_network_transmit_bytes_total|container_fs_usage_bytes|container_fs_limit_bytes"
           # Network metrics: keep only pod-level (container=""), drop per-container
           - source_labels: [__name__, container]
             action: drop
@@ -154,7 +156,7 @@ data:
         metric_relabel_configs:
           - source_labels: [__name__]
             action: keep
-            regex: "node_cpu_seconds_total|node_memory_MemTotal_bytes|node_memory_MemAvailable_bytes|node_memory_MemFree_bytes|node_memory_Cached_bytes|node_memory_Buffers_bytes|node_memory_Active_bytes|node_memory_Inactive_bytes|node_filesystem_size_bytes|node_filesystem_avail_bytes|node_filesystem_free_bytes|node_disk_read_bytes_total|node_disk_written_bytes_total|node_network_receive_bytes_total|node_network_transmit_bytes_total|node_load1"
+            regex: "node_cpu_seconds_total|node_memory_MemTotal_bytes|node_memory_MemAvailable_bytes|node_memory_MemFree_bytes|node_memory_Cached_bytes|node_memory_Buffers_bytes|node_memory_Active_bytes|node_memory_Inactive_bytes|node_filesystem_size_bytes|node_filesystem_avail_bytes|node_filesystem_free_bytes|node_disk_read_bytes_total|node_disk_written_bytes_total|node_disk_io_time_seconds_total|node_disk_reads_completed_total|node_disk_writes_completed_total|node_network_receive_bytes_total|node_network_transmit_bytes_total|node_load1"
           # Keep node + the few intra-metric breakdown labels; drop instance,
           # job, pod, endpoint, etc.
           - action: labelkeep

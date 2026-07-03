@@ -17,6 +17,32 @@ global:
   imagePullSecrets: []
 
 #########################################
+# Resource sizing across cluster sizes
+#
+# The two components scale differently, so they tune differently:
+#
+#   Agent — FLAT. It streams samples straight to disk and paces its Go heap
+#     with GOMEMLIMIT, so its memory does not grow with cluster size or series
+#     cardinality. The default (agent.resources + agent.goMemLimit) is intended
+#     to fit clusters of any size as-is — you do NOT raise it as you grow. On
+#     small clusters you may lower agent.resources.limits.memory and
+#     agent.goMemLimit together (keep GOMEMLIMIT below the limit with headroom)
+#     to reclaim a little overhead, but it is rarely worth it.
+#
+#   vmagent — SERIES-DRIVEN. Its footprint grows with the number of active
+#     series it scrapes (roughly nodes x pods x kept metrics), not with scrape
+#     rate. The defaults (vmagent.memoryAllowedBytes, vmagent.resources) carry a
+#     generous cluster comfortably. For large / high-cardinality clusters this
+#     is the component to size up: raise vmagent.memoryAllowedBytes with headroom
+#     above steady-state usage and set an explicit vmagent.resources.limits.memory
+#     (left unset by default) if you want a hard ceiling. On small clusters the
+#     defaults are already ample.
+#
+# Rule of thumb: if memory pressure appears as you scale, it is vmagent — the
+# agent stays flat. Per-component tuning notes live with each stanza below.
+#########################################
+
+#########################################
 # Service Account
 #########################################
 serviceAccount:
@@ -64,19 +90,46 @@ agent:
   # row-group buffer and paces its Go heap with GOMEMLIMIT (see goMemLimit
   # below), so resident memory stays flat and does not scale with series
   # cardinality or cluster size. The limit sits above the GOMEMLIMIT target with
-  # headroom for the runtime and reclaimable page cache.
+  # headroom for the runtime and reclaimable page cache. This default fits any
+  # cluster size as-is — see "Resource sizing across cluster sizes" up top.
   resources:
     requests:
       cpu: 200m
       memory: 128Mi
     limits:
       cpu: 2000m
-      memory: 640Mi
+      memory: 1536Mi
   # Soft Go heap ceiling. Paces GC to keep resident memory bounded well under
   # the limit above, giving the container a flat, predictable footprint instead
   # of one that grows with load. Keep it below limits.memory with headroom. Uses
   # Go's size format (MiB/GiB), which differs from the Kubernetes quantity above.
-  goMemLimit: "460MiB"
+  goMemLimit: "1280MiB"
+  # ClusterRole + ClusterRoleBinding for the agent's API access (see informers
+  # below). Set create=false to manage them out of band — e.g. restricted
+  # clusters (OpenShift, strict namespace isolation) where the installing user
+  # can't create cluster-scoped resources and an admin pre-creates them.
+  rbac:
+    create: true
+  # In-process metadata: the agent watches the Kubernetes API via informers and
+  # synthesizes the kube_* object metadata itself (no kube-state-metrics). This
+  # requires the ClusterRole in templates/agent/agent-rbac.yaml (get/list/watch
+  # on the watched kinds), bound to the agent ServiceAccount.
+  informers:
+    # Seconds between metadata snapshots emitted to the stream (clamped 15–300).
+    emitIntervalSeconds: 60
+    # Annotation keys to collect for cost allocation (comma-separated). Match the
+    # keys your org tags with for chargeback; empty collects none. Avoid
+    # high-cardinality keys (e.g. last-applied-configuration) — they explode
+    # series count.
+    annotationKeys: "team,cost-center,owner"
+    # Comma-separated resource kinds to stop watching (plural lowercase, e.g.
+    # "poddisruptionbudgets,horizontalpodautoscalers"). Empty watches all.
+    disabledKinds: ""
+    # Path to a kubeconfig for the metadata client. Empty uses the in-cluster
+    # config (the pod ServiceAccount) — the norm for an in-cluster install.
+    kubeconfig: ""
+    # Export the KSM-parity debug endpoint (/debug/ksm-parity). Diagnostics only.
+    enableParityExport: false
   env:
     # Required — provided by the DigiUsher team. Secret only renders when this
     # is non-empty; the agent fails fast on startup if the env var is missing.
@@ -139,9 +192,11 @@ agent:
 #########################################
 # vmagent (VictoriaMetrics agent) configurations
 #
-# vmagent runs as a single Deployment that scrapes KSM + every kubelet's
-# /metrics/cadvisor and /metrics endpoints (via Kubernetes service discovery),
-# then remote_writes to the in-cluster agent Service.
+# vmagent runs as a single Deployment that scrapes every kubelet's
+# /metrics/cadvisor and /metrics endpoints (plus optional dcgm-exporter and
+# node-exporter) via Kubernetes service discovery, then remote_writes to the
+# in-cluster agent Service. Object metadata no longer comes from a scrape — the
+# agent synthesizes it in-process from the Kubernetes API.
 #########################################
 vmagent:
   enabled: true
@@ -156,15 +211,9 @@ vmagent:
   # pods (jobs, scaling churn) — at 60s a 15-second pod has only ~25% chance
   # of being captured in a scrape; at 20s the capture probability is ~75%.
   # vmagent's own footprint is series-driven, not scrape-rate-driven, so a
-  # lower cAdvisor interval barely moves the scraper's memory or CPU.
-  #
-  # Tighten KSM (e.g. ~20–30s) to catch short-lived pods/jobs before they
-  # vanish — the agent's change-detection keeps downstream volume bounded, so a
-  # faster KSM scrape costs API-server read load, not downstream samples.
-  # Validate kube-apiserver headroom before going low. kubelet stays at 60s;
-  # storage capacity changes slowly.
+  # lower cAdvisor interval barely moves the scraper's memory or CPU. kubelet
+  # stays at 60s; storage capacity changes slowly.
   intervals:
-    ksm: "60s"
     cadvisor: "60s"
     kubelet: "60s"
   # GPU metrics via dcgm-exporter, for GPU cost/utilization. ON by default:
@@ -216,7 +265,10 @@ vmagent:
     storageClassName: ""
   # Memory request only; the limit is left unset — set one sized to your
   # cluster if you want a hard ceiling.
-  # vmagent's footprint is series-driven, bounded by the keep-list above.
+  # vmagent's footprint is series-driven, bounded by the keep-list above. This
+  # is the component to size up on large / high-cardinality clusters (raise
+  # memoryAllowedBytes, optionally set a limit here) — see "Resource sizing
+  # across cluster sizes" up top.
   resources:
     requests:
       cpu: 200m
@@ -244,36 +296,3 @@ vmagent:
       value: "true"
       effect: "NoSchedule"
   affinity: {}
-
-#########################################
-# Kube State Metrics configurations
-#########################################
-kube-state-metrics:
-  # Memory request only; the limit is left unset — set one sized to your
-  # cluster if you want a hard ceiling.
-  # KSM memory scales with cluster object count.
-  resources:
-    requests:
-      cpu: 50m
-      memory: 128Mi
-  # Soft Go heap ceiling for kube-state-metrics. KSM allocates a large heap
-  # during its initial LIST of all cluster objects on startup and settles
-  # afterward; GOMEMLIMIT paces GC so that startup spike stays bounded instead
-  # of briefly peaking well above steady state. Size it ABOVE your steady-state
-  # KSM usage (which grows with object count) with headroom — set too low it
-  # drives GC CPU up. Remove this entry to leave KSM's heap uncapped.
-  env:
-    - name: GOMEMLIMIT
-      value: "1GiB"
-  extraArgs:
-    - "--metric-labels-allowlist=pods=[*],nodes=[*],services=[selector],resourcequotas=[*],jobs=[*],namespaces=[*],endpoints=[*]"
-    # Annotation-based cost allocation. KSM emits no annotations by default;
-    # this surfaces the keys your org tags with for chargeback. Set the keys to
-    # match your conventions (cost-center / team / owner, etc.). Do NOT use
-    # [*] — it pulls in huge annotations like
-    # kubectl.kubernetes.io/last-applied-configuration and explodes cardinality.
-    # Overriding extraArgs replaces the whole list, so keep the line above too.
-    - "--metric-annotations-allowlist=pods=[team,cost-center,owner],namespaces=[team,cost-center,owner]"
-  podLabels:
-    owner: digiusher-k8s
-    component: external

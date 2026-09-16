@@ -12,34 +12,27 @@ global:
   # Flip to true to pull the private *-dev images (CI workflow_dispatch builds)
   # instead of the public prod ones. When true, populate global.imagePullSecrets
   # with a secret that can authenticate to ghcr.io and override the per-service
-  # image.devTag with a real SHA (the *-dev packages don't carry a `latest` tag).
+  # image.devTag with a real SHA (the *-dev packages carry no `latest` tag).
   useDevImages: false
   imagePullSecrets: []
 
 #########################################
 # Resource sizing across cluster sizes
 #
-# The two components scale differently, so they tune differently:
+# The two components scale in different ways.
 #
-#   Agent — FLAT. It streams samples straight to disk and paces its Go heap
-#     with GOMEMLIMIT, so its memory does not grow with cluster size or series
-#     cardinality. The default (agent.resources + agent.goMemLimit) is intended
-#     to fit clusters of any size as-is — you do NOT raise it as you grow. On
-#     small clusters you may lower agent.resources.limits.memory and
-#     agent.goMemLimit together (keep GOMEMLIMIT below the limit with headroom)
-#     to reclaim a little overhead, but it is rarely worth it.
+#   Agent — scales with objects. Sample handling stays flat, because the agent
+#     streams samples to disk and paces its heap with GOMEMLIMIT. The informer
+#     cache is the part that grows. Budget about 110 MiB, plus 19 KiB for each
+#     pod. To size up, raise agent.goMemLimit and agent.resources.limits.memory
+#     together. Keep GOMEMLIMIT below the limit.
 #
-#   vmagent — SERIES-DRIVEN. Its footprint grows with the number of active
-#     series it scrapes (roughly nodes x pods x kept metrics), not with scrape
-#     rate. The defaults (vmagent.memoryAllowedBytes, vmagent.resources) carry a
-#     generous cluster comfortably. For large / high-cardinality clusters this
-#     is the component to size up: raise vmagent.memoryAllowedBytes with headroom
-#     above steady-state usage and set an explicit vmagent.resources.limits.memory
-#     (left unset by default) if you want a hard ceiling. On small clusters the
-#     defaults are already ample.
+#   vmagent — almost flat. It forwards only the node and container metrics it
+#     scrapes, so it runs at a small floor. Budget about 64 MiB, plus 5 KiB for
+#     each pod. The 1GB default leaves wide headroom.
 #
-# Rule of thumb: if memory pressure appears as you scale, it is vmagent — the
-# agent stays flat. Per-component tuning notes live with each stanza below.
+# If memory runs short as the cluster grows, the cause is the agent cache, not
+# vmagent. The defaults suit clusters into the low thousands of nodes.
 #########################################
 
 #########################################
@@ -55,8 +48,8 @@ serviceAccount:
 
 #########################################
 # Agent — the Go binary that receives Prometheus remote_write from vmagent,
-# streams raw samples straight to native parquet on disk (flat memory,
-# no in-memory window buffer), and uploads completed files via a pre-signed S3
+# streams raw samples straight to native parquet on disk (no in-memory window
+# buffer), and uploads completed files via a pre-signed S3
 # URL. The PV holds pending/in-flight parquet for durability across restarts.
 #########################################
 agent:
@@ -86,12 +79,10 @@ agent:
     size: 20Gi
     storageClassName: ""
     mountPath: /var/lib/digiusher-agent/pending
-  # Memory is a low, flat target. The agent streams rows to disk with a bounded
-  # row-group buffer and paces its Go heap with GOMEMLIMIT (see goMemLimit
-  # below), so resident memory stays flat and does not scale with series
-  # cardinality or cluster size. The limit sits above the GOMEMLIMIT target with
-  # headroom for the runtime and reclaimable page cache. This default fits any
-  # cluster size as-is — see "Resource sizing across cluster sizes" up top.
+  # Memory does not grow with sample rate or series count. It grows with the
+  # number of objects the informers cache. See the sizing note at the top of
+  # this file. The limit leaves headroom above GOMEMLIMIT for the Go runtime and
+  # the page cache.
   resources:
     requests:
       cpu: 200m
@@ -100,14 +91,14 @@ agent:
       cpu: 2000m
       memory: 1536Mi
   # Soft Go heap ceiling. Paces GC to keep resident memory bounded well under
-  # the limit above, giving the container a flat, predictable footprint instead
-  # of one that grows with load. Keep it below limits.memory with headroom. Uses
+  # the limit above, giving the container a bounded, predictable footprint
+  # instead of one that grows with load. Keep it below limits.memory with headroom. Uses
   # Go's size format (MiB/GiB), which differs from the Kubernetes quantity above.
   goMemLimit: "1280MiB"
   # ClusterRole + ClusterRoleBinding for the agent's API access (see informers
   # below). Set create=false to manage them out of band — e.g. restricted
   # clusters (OpenShift, strict namespace isolation) where the installing user
-  # can't create cluster-scoped resources and an admin pre-creates them.
+  # cannot create cluster-scoped resources and an admin pre-creates them.
   rbac:
     create: true
   # In-process metadata: the agent watches the Kubernetes API via informers and
@@ -155,9 +146,9 @@ agent:
     allowPrivilegeEscalation: false
     runAsNonRoot: true
     runAsUser: 65532
-  # Readiness now flips after a fast staging-dir scan (no snapshot load), so the
-  # startup budget no longer needs to cover a slow recovery: 12 × 10s = 120s,
-  # ample headroom for image pull + PVC attach.
+  # Readiness flips after a fast staging-dir scan, with no snapshot load, so the
+  # startup budget covers only the image pull and the PVC attach: 12 × 10s =
+  # 120s, with ample headroom.
   startupProbe:
     httpGet:
       path: /readyz
@@ -195,8 +186,8 @@ agent:
 # vmagent runs as a single Deployment that scrapes every kubelet's
 # /metrics/cadvisor and /metrics endpoints (plus optional dcgm-exporter and
 # node-exporter) via Kubernetes service discovery, then remote_writes to the
-# in-cluster agent Service. Object metadata no longer comes from a scrape — the
-# agent synthesizes it in-process from the Kubernetes API.
+# in-cluster agent Service. vmagent does not scrape object metadata. The agent
+# builds that in process from the Kubernetes API.
 #########################################
 vmagent:
   enabled: true
@@ -234,7 +225,7 @@ vmagent:
   # Node-level utilization via node-exporter, for node-consolidation analysis.
   # ON by default: vmagent discovers the node-exporter Service endpoints and
   # scrapes a curated node CPU/memory/filesystem/disk/network/load set. When no
-  # node-exporter Service is present the scrape job simply finds no targets — a
+  # node-exporter Service is present the scrape job finds no targets — a
   # harmless no-op — so leaving it on costs nothing on clusters without one and
   # starts collecting the moment one exists (no chart change needed). Set false
   # to opt out of scraping an existing node-exporter.
@@ -265,10 +256,9 @@ vmagent:
     storageClassName: ""
   # Memory request only; the limit is left unset — set one sized to your
   # cluster if you want a hard ceiling.
-  # vmagent's footprint is series-driven, bounded by the keep-list above. This
-  # is the component to size up on large / high-cardinality clusters (raise
-  # memoryAllowedBytes, optionally set a limit here) — see "Resource sizing
-  # across cluster sizes" up top.
+  # The keep-list above bounds vmagent's footprint, and it stays near a flat
+  # floor as the cluster grows. Size up the agent, not vmagent. See the sizing
+  # note at the top of this file.
   resources:
     requests:
       cpu: 200m

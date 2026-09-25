@@ -46,10 +46,13 @@ spec:
             - secretRef:
                 name: {{ include "digiusher-k8s-agent.apiToken.secretName" . }}
                 optional: true
-          {{- with .Values.agent.extraEnv }}
           env:
+            # Reported to the DigiUsher API so support can see which chart a cluster runs.
+            - name: CHART_VERSION
+              value: {{ .Chart.Version | quote }}
+            {{- with .Values.agent.extraEnv }}
             {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.agent.service.port }}

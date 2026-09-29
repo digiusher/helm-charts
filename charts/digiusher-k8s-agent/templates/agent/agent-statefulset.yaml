@@ -96,10 +96,21 @@ spec:
   {{- if .Values.agent.persistence.enabled }}
   volumeClaimTemplates:
     - metadata:
+        # Kubernetes does not allow changes to volumeClaimTemplates. Charts
+        # 0.5.1 and earlier put the chart version in these labels, so keep
+        # the labels of an existing StatefulSet. New installs get labels that
+        # stay the same between chart releases.
+        {{- $existing := lookup "apps/v1" "StatefulSet" .Release.Namespace (include "digiusher-k8s-agent.agent.fullname" .) }}
+        {{- $existingLabels := dig "spec" "volumeClaimTemplates" list $existing | first | default dict | dig "metadata" "labels" dict }}
         name: data
         labels:
-          {{- include "digiusher-k8s-agent.labels" . | nindent 10 }}
+          {{- if $existingLabels }}
+          {{- toYaml $existingLabels | nindent 10 }}
+          {{- else }}
+          owner: digiusher-k8s
+          {{- include "digiusher-k8s-agent.selectorLabels" . | nindent 10 }}
           app.kubernetes.io/component: agent
+          {{- end }}
       spec:
         accessModes:
           - ReadWriteOnce

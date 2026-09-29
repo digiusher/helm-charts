@@ -1,0 +1,19 @@
+charts/digiusher-k8s-agent/Chart.yaml
+  s_585ee1f9132487::t_0fbb8a5bcb89d4 18,24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "bc7c405c6f98f986b1888294afb51b6ad2aa28a7",
+  "prompts": {},
+  "sessions": {
+    "s_585ee1f9132487": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d33bed1a-f376-43f7-bd3a-6fd2e3b171b7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Gaganpreet Arora <me@gaganpreet.in>"
+    }
+  }
+}

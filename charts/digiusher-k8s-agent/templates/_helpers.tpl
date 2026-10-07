@@ -108,3 +108,38 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Resource requests for each sizing tier. The values.yaml sizing note documents
+the tiers.
+*/}}
+{{- define "digiusher-k8s-agent.sizingRequests" -}}
+{{- $tiers := dict
+  "small" (dict
+    "agent" (dict "cpu" "25m" "memory" "128Mi")
+    "vmagent" (dict "cpu" "25m" "memory" "96Mi"))
+  "medium" (dict
+    "agent" (dict "cpu" "100m" "memory" "256Mi")
+    "vmagent" (dict "cpu" "150m" "memory" "160Mi"))
+  "large" (dict
+    "agent" (dict "cpu" "250m" "memory" "1Gi")
+    "vmagent" (dict "cpu" "250m" "memory" "320Mi"))
+-}}
+{{- $sizing := toString (.root.Values.sizing | default "small") -}}
+{{- $tier := get $tiers $sizing -}}
+{{- if not $tier -}}
+{{- fail (printf "sizing must be small, medium or large, not %q" $sizing) -}}
+{{- end -}}
+{{- toYaml (get $tier .component) -}}
+{{- end }}
+
+{{/*
+Container resources: the tier's requests, with any request or limit set in
+values on top. Call with (dict "root" $ "component" "agent" "resources" .Values.agent.resources).
+*/}}
+{{- define "digiusher-k8s-agent.resources" -}}
+{{- $resources := deepCopy (default (dict) .resources) -}}
+{{- $requests := deepCopy (default (dict) $resources.requests) -}}
+{{- $_ := set $resources "requests" (merge $requests (include "digiusher-k8s-agent.sizingRequests" . | fromYaml)) -}}
+{{- toYaml $resources -}}
+{{- end }}

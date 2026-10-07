@@ -29,8 +29,11 @@ helm repo update
 
 helm install digiusher-k8s-agent digiusher/digiusher-k8s-agent \
   --namespace digiusher-k8s --create-namespace \
+  --set sizing=small \
   --set agent.env.digiusher_k8s_api_token=<API_TOKEN>
 ```
+
+Set `sizing` to the tier that matches the cluster. See [Sizing](#sizing).
 
 To uninstall:
 
@@ -48,19 +51,67 @@ The two components scale in different ways.
 - **vmagent — almost flat.** It forwards only the node and container metrics it scrapes, so it
   runs at a small floor. Budget about 64 MiB plus 5 KiB for each pod.
 
-If memory runs short as the cluster grows, the cause is the agent cache, not vmagent. The
-defaults suit clusters into the low thousands of nodes, so most clusters need no change.
+The `sizing` value picks a tier. The tier sets the CPU and memory requests of both components.
+The requests are what the cluster reserves, so a tier that matches the cluster keeps the
+reserved capacity close to real use.
+
+| Tier | Cluster size | agent requests | vmagent requests |
+| --- | --- | --- | --- |
+| `small` (default) | Up to about 50 nodes or 1,500 pods | `25m` / `128Mi` | `25m` / `96Mi` |
+| `medium` | Up to about 250 nodes or 7,500 pods | `100m` / `256Mi` | `150m` / `160Mi` |
+| `large` | Up to about 1,500 nodes or 45,000 pods | `250m` / `1Gi` | `250m` / `320Mi` |
+
+The limits do not change with the tier. The agent keeps its `2000m` / `1536Mi` limits and
+`agent.goMemLimit`. vmagent has no limits, because a CPU limit throttles its scrape bursts. A
+cluster that outgrows its tier keeps running. Move it to the next tier to restore the scheduling
+guarantee.
 
 | Situation | What to set |
 | --- | --- |
-| Most clusters | Leave the defaults. |
-| Small clusters | To reclaim overhead, lower `agent.resources.limits.memory` and `agent.goMemLimit` together. Keep GOMEMLIMIT below the limit. |
-| Larger clusters | Raise `agent.goMemLimit` and `agent.resources.limits.memory` together. Budget 19 KiB for each pod. The vmagent defaults need no change. |
+| Most clusters | Set `sizing` to the tier that matches the cluster. |
+| One component needs more | Set `agent.resources.requests` or `vmagent.resources.requests`. A request set there wins over the tier. |
+| `large` clusters | At install, set `agent.persistence.size` to `50Gi`. The volume holds the files that wait for upload, so a larger volume rides out a longer loss of connection. To grow it later, see [Grow a volume](#grow-a-volume). |
+| Above about 1,500 nodes | Use `large`. Raise `agent.goMemLimit` and `agent.resources.limits.memory` together, and keep GOMEMLIMIT below the limit. Budget 19 KiB for each pod. |
+
+### Grow a volume
+
+Volumes can grow, not shrink, and the StorageClass must allow it. Run `kubectl get storageclass` and check the
+`ALLOWVOLUMEEXPANSION` column. The commands use the release name `digiusher-k8s-agent` and need Helm 3.14 or later for
+`--reset-then-reuse-values`, which keeps your values and takes the defaults of the new chart version.
+
+**vmagent** uses a standalone PersistentVolumeClaim. Raise its size with an upgrade:
+
+```console
+helm upgrade digiusher-k8s-agent digiusher/digiusher-k8s-agent \
+  --namespace digiusher-k8s --reset-then-reuse-values \
+  --set vmagent.persistence.size=50Gi
+```
+
+**agent** gets its volume from the StatefulSet's volume claim template. Kubernetes does not let a StatefulSet change that
+template, so grow the claim first, then replace the StatefulSet object without its pod:
+
+```console
+kubectl patch pvc data-digiusher-k8s-agent-agent-0 --namespace digiusher-k8s \
+  -p '{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'
+kubectl delete statefulset digiusher-k8s-agent-agent --namespace digiusher-k8s --cascade=orphan
+helm upgrade digiusher-k8s-agent digiusher/digiusher-k8s-agent \
+  --namespace digiusher-k8s --reset-then-reuse-values \
+  --set agent.persistence.size=50Gi
+```
+
+`--cascade=orphan` deletes only the StatefulSet object. The agent pod and its volume keep running, and the upgrade
+creates the StatefulSet again around them.
 
 ## Configuration
 
-Set values with `--set key=value` or a `-f values.yaml` overrides file. The most common change
-is the required API token (`agent.env.digiusher_k8s_api_token`).
+Set values with `--set key=value` or a `-f values.yaml` overrides file. The most common changes
+are the required API token (`agent.env.digiusher_k8s_api_token`) and `sizing`.
+
+### Sizing
+
+| Key | Description | Default |
+| --- | --- | --- |
+| `sizing` | Resource tier: `small`, `medium` or `large`. Sets the CPU and memory requests of the agent and vmagent. See Sizing. | `small` |
 
 ### Global
 
@@ -90,7 +141,7 @@ is the required API token (`agent.env.digiusher_k8s_api_token`).
 | `agent.env.digiusher_k8s_api_url` | DigiUsher ingestion endpoint. | `https://app.digiusher.com/api/v3` |
 | `agent.env.log_level` | Log level. | `info` |
 | `agent.extraEnv` | Extra raw `env:` entries for advanced overrides. | `[]` |
-| `agent.resources` | Agent CPU/memory requests and limits. Memory scales with object count — see Sizing. | requests `200m`/`128Mi`, limits `2000m`/`1536Mi` |
+| `agent.resources` | Agent CPU/memory requests and limits. Requests set here win over the `sizing` tier. Memory scales with object count. See Sizing. | requests from `sizing`, limits `2000m`/`1536Mi` |
 | `agent.goMemLimit` | Soft Go heap ceiling (Go size format). Keep it below `resources.limits.memory`. | `1280MiB` |
 | `agent.rbac.create` | Create the agent ClusterRole/ClusterRoleBinding. Set `false` to manage out of band. | `true` |
 | `agent.service.port` | Agent metrics/ingest port. | `8111` |
@@ -118,7 +169,7 @@ is the required API token (`agent.env.digiusher_k8s_api_token`).
 | `vmagent.intervals.kubelet` | Kubelet scrape interval. | `60s` |
 | `vmagent.memoryAllowedBytes` | Soft cap on vmagent's memory (`-memory.allowedBytes`). Size it above steady state with headroom. The default rarely needs a change. | `1GB` |
 | `vmagent.maxDiskUsagePerURL` | Disk cap for vmagent's remote_write retry queue (outage buffer). | `20GB` |
-| `vmagent.resources` | vmagent CPU/memory requests. The memory limit is unset by default. Set one for a hard cap. | requests `200m`/`256Mi`, limits `500m` cpu |
+| `vmagent.resources` | vmagent CPU/memory requests and limits. Requests set here win over the `sizing` tier. No limits by default. Set one for a hard cap. | requests from `sizing`, no limits |
 | `vmagent.persistence.enabled` | Use a PersistentVolume for the remote_write queue. | `true` |
 | `vmagent.persistence.size` | vmagent queue PVC size. | `30Gi` |
 

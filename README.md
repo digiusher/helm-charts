@@ -23,9 +23,12 @@ To install the `digiusher-k8s-agent` chart:
 ```console
 helm install digiusher-k8s-agent digiusher/digiusher-k8s-agent \
 --set agent.env.digiusher_k8s_api_token=<insert_api_token> \
+--set sizing=small \
 --namespace digiusher-k8s \
 --create-namespace
 ```
+
+Set `sizing` to `small`, `medium` or `large` to match the cluster. The [chart README](./charts/digiusher-k8s-agent/README.md#sizing) lists the tiers.
 
 ## Charts
 

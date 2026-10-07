@@ -24,16 +24,27 @@ global:
 #   Agent — scales with objects. Sample handling stays flat, because the agent
 #     streams samples to disk and paces its heap with GOMEMLIMIT. The informer
 #     cache is the part that grows. Budget about 110 MiB, plus 19 KiB for each
-#     pod. To size up, raise agent.goMemLimit and agent.resources.limits.memory
-#     together. Keep GOMEMLIMIT below the limit.
+#     pod.
 #
 #   vmagent — almost flat. It forwards only the node and container metrics it
 #     scrapes, so it runs at a small floor. Budget about 64 MiB, plus 5 KiB for
 #     each pod. The 1GB default leaves wide headroom.
 #
-# If memory runs short as the cluster grows, the cause is the agent cache, not
-# vmagent. The defaults suit clusters into the low thousands of nodes.
+# Pick the tier that matches the cluster. The tier sets the CPU and memory
+# requests of both components:
+#
+#   Tier     Cluster size                 agent          vmagent
+#   small    up to ~50 nodes / 1.5k pods   25m / 128Mi    25m / 96Mi
+#   medium   up to ~250 nodes / 7.5k pods  100m / 256Mi   150m / 160Mi
+#   large    up to ~1500 nodes / 45k pods  250m / 1Gi     250m / 320Mi
+#
+# The limits do not change with the tier. A cluster that outgrows its tier
+# keeps running inside the same limits. Move it to the next tier to restore the
+# scheduling guarantee. A request under agent.resources or vmagent.resources
+# wins over the tier. Above ~1500 nodes, raise agent.goMemLimit and
+# agent.resources.limits.memory together, and keep GOMEMLIMIT below the limit.
 #########################################
+sizing: small
 
 #########################################
 # Service Account
@@ -83,10 +94,9 @@ agent:
   # number of objects the informers cache. See the sizing note at the top of
   # this file. The limit leaves headroom above GOMEMLIMIT for the Go runtime and
   # the page cache.
+  # The requests come from the sizing tier. Set them here to override the tier.
   resources:
-    requests:
-      cpu: 200m
-      memory: 128Mi
+    requests: {}
     limits:
       cpu: 2000m
       memory: 1536Mi
@@ -254,17 +264,13 @@ vmagent:
     enabled: true
     size: 30Gi
     storageClassName: ""
-  # Memory request only; the limit is left unset — set one sized to your
-  # cluster if you want a hard ceiling.
+  # The requests come from the sizing tier. Set them here to override the tier.
+  # No limits by default. vmagent scrapes in bursts, and a CPU limit throttles
+  # those bursts. Set a limit here if you want a hard ceiling.
   # The keep-list above bounds vmagent's footprint, and it stays near a flat
-  # floor as the cluster grows. Size up the agent, not vmagent. See the sizing
-  # note at the top of this file.
+  # floor as the cluster grows. See the sizing note at the top of this file.
   resources:
-    requests:
-      cpu: 200m
-      memory: 256Mi
-    limits:
-      cpu: 500m
+    requests: {}
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault

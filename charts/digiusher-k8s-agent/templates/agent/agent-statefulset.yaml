@@ -69,10 +69,8 @@ spec:
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.agent.resources }}
           resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- include "digiusher-k8s-agent.resources" (dict "root" . "component" "agent" "resources" .Values.agent.resources) | nindent 12 }}
           volumeMounts:
             - name: data
               mountPath: {{ .Values.agent.persistence.mountPath }}

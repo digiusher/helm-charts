@@ -125,9 +125,10 @@ the tiers.
     "agent" (dict "cpu" "250m" "memory" "1Gi")
     "vmagent" (dict "cpu" "250m" "memory" "320Mi"))
 -}}
-{{- $tier := get $tiers (toString .root.Values.sizing) -}}
+{{- $sizing := toString (.root.Values.sizing | default "small") -}}
+{{- $tier := get $tiers $sizing -}}
 {{- if not $tier -}}
-{{- fail (printf "sizing must be small, medium or large, not %q" (toString .root.Values.sizing)) -}}
+{{- fail (printf "sizing must be small, medium or large, not %q" $sizing) -}}
 {{- end -}}
 {{- toYaml (get $tier .component) -}}
 {{- end }}

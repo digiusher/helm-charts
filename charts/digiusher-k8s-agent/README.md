@@ -70,8 +70,37 @@ guarantee.
 | --- | --- |
 | Most clusters | Set `sizing` to the tier that matches the cluster. |
 | One component needs more | Set `agent.resources.requests` or `vmagent.resources.requests`. A request set there wins over the tier. |
-| `large` clusters | At install, set `agent.persistence.size` to `50Gi`. The volume holds the files that wait for upload, so a larger volume rides out a longer loss of connection. A StatefulSet cannot change its volume claim template, so `helm upgrade` cannot change this size. |
+| `large` clusters | At install, set `agent.persistence.size` to `50Gi`. The volume holds the files that wait for upload, so a larger volume rides out a longer loss of connection. To grow it later, see [Grow a volume](#grow-a-volume). |
 | Above about 1,500 nodes | Use `large`. Raise `agent.goMemLimit` and `agent.resources.limits.memory` together, and keep GOMEMLIMIT below the limit. Budget 19 KiB for each pod. |
+
+### Grow a volume
+
+Volumes can grow, not shrink, and the StorageClass must allow it. Run `kubectl get storageclass` and check the
+`ALLOWVOLUMEEXPANSION` column. The commands use the release name `digiusher-k8s-agent` and need Helm 3.14 or later for
+`--reset-then-reuse-values`, which keeps your values and takes the defaults of the new chart version.
+
+**vmagent** uses a standalone PersistentVolumeClaim. Raise its size with an upgrade:
+
+```console
+helm upgrade digiusher-k8s-agent digiusher/digiusher-k8s-agent \
+  --namespace digiusher-k8s --reset-then-reuse-values \
+  --set vmagent.persistence.size=50Gi
+```
+
+**agent** gets its volume from the StatefulSet's volume claim template. Kubernetes does not let a StatefulSet change that
+template, so grow the claim first, then replace the StatefulSet object without its pod:
+
+```console
+kubectl patch pvc data-digiusher-k8s-agent-agent-0 --namespace digiusher-k8s \
+  -p '{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'
+kubectl delete statefulset digiusher-k8s-agent-agent --namespace digiusher-k8s --cascade=orphan
+helm upgrade digiusher-k8s-agent digiusher/digiusher-k8s-agent \
+  --namespace digiusher-k8s --reset-then-reuse-values \
+  --set agent.persistence.size=50Gi
+```
+
+`--cascade=orphan` deletes only the StatefulSet object. The agent pod and its volume keep running, and the upgrade
+creates the StatefulSet again around them.
 
 ## Configuration
 

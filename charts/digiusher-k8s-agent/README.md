@@ -70,6 +70,7 @@ guarantee.
 | --- | --- |
 | Most clusters | Set `sizing` to the tier that matches the cluster. |
 | One component needs more | Set `agent.resources.requests` or `vmagent.resources.requests`. A request set there wins over the tier. |
+| `large` clusters | At install, set `agent.persistence.size` to `50Gi`. The volume holds the files that wait for upload, so a larger volume rides out a longer loss of connection. A StatefulSet cannot change its volume claim template, so `helm upgrade` cannot change this size. |
 | Above about 1,500 nodes | Use `large`. Raise `agent.goMemLimit` and `agent.resources.limits.memory` together, and keep GOMEMLIMIT below the limit. Budget 19 KiB for each pod. |
 
 ## Configuration

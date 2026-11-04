@@ -1,0 +1,21 @@
+charts/digiusher-k8s-agent/Chart.yaml
+  s_888a018addc934::t_cc1b640b164d3e 18
+charts/digiusher-k8s-agent/templates/agent/agent-rbac.yaml
+  s_888a018addc934::t_cc1b640b164d3e 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d2f8ab988070110f1f23383ebfb6ff751954e93b",
+  "prompts": {},
+  "sessions": {
+    "s_888a018addc934": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "592b6975-0be5-4c8a-9a6c-5961ddfdfe7a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Gaganpreet Arora <me@gaganpreet.in>"
+    }
+  }
+}

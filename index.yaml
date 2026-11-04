@@ -3,6 +3,16 @@ entries:
   digiusher-k8s-agent:
   - apiVersion: v2
     appVersion: 1.2.1
+    created: "2026-11-04T14:17:19.212557481Z"
+    description: DigiUsher metrics collection agent for Kubernetes
+    digest: 7bb65f8a91ee97bff3d3e33e43ff62347a040b240fbef68ef0916ce7a2b6b5a1
+    name: digiusher-k8s-agent
+    type: application
+    urls:
+    - https://github.com/digiusher/helm-charts/releases/download/digiusher-k8s-agent-0.6.1/digiusher-k8s-agent-0.6.1.tgz
+    version: 0.6.1
+  - apiVersion: v2
+    appVersion: 1.2.1
     created: "2026-10-07T13:12:45.479768835Z"
     description: DigiUsher metrics collection agent for Kubernetes
     digest: c772e802bd2c8cd721b27e4780dbb741febc76d0a847f69165e93163439015cc
@@ -189,4 +199,4 @@ entries:
     urls:
     - https://github.com/digiusher/helm-charts/releases/download/digiusher-k8s-ingestion-0.0.1/digiusher-k8s-ingestion-0.0.1.tgz
     version: 0.0.1
-generated: "2026-10-07T13:12:45.47979276Z"
+generated: "2026-11-04T14:17:19.212612156Z"

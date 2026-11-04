@@ -1,9 +1,7 @@
 {{- if and .Values.agent.enabled .Values.agent.rbac.create }}
 # The agent watches the Kubernetes API via informers and synthesizes object
 # metadata in-process. This grants get/list/watch on exactly the kinds it
-# watches, bound to the agent ServiceAccount. vmagent shares that
-# ServiceAccount, so the endpoints permission below also covers its
-# endpoint-role service discovery (dcgm-exporter / node-exporter).
+# watches, bound to the agent ServiceAccount.
 # Set agent.rbac.create=false to manage the ClusterRole/Binding out of band
 # (e.g. restricted clusters where namespace admins can't create cluster roles).
 apiVersion: rbac.authorization.k8s.io/v1
@@ -21,8 +19,6 @@ rules:
       - namespaces
       - replicationcontrollers
       - services
-      # For vmagent's endpoint-role service discovery (shared ServiceAccount).
-      - endpoints
       - resourcequotas
       - persistentvolumes
       - persistentvolumeclaims
